@@ -90,6 +90,12 @@ O recorte em alemão (12.249 linhas) **não entra no treino**. Ele é limpo com 
 salvo como `drift_pool_de.parquet`, para servir no D8 como cenário de drift **realista**
 (mudança de idioma e vocabulário), em vez de ruído artificial.
 
+> **Correção (15/11, D8):** o campo `language` não é confiável. Por votação de *stop-words*, **27,3%**
+> das linhas marcadas `de` estão escritas em inglês (no recorte `en`, só 0,0–0,01% estão em alemão).
+> O cenário de drift usa só as linhas detectadas como alemão (71,7% do pool). Com o pool contaminado,
+> a queda de F1 no cenário saía em −0,071; com o pool limpo, −0,182 (semente 42). Ver
+> [`findings.md` §8](findings.md).
+
 ## Limitações
 
 - **Provavelmente sintético.** A página não diz como os dados foram gerados, e há placeholders como

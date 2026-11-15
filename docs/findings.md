@@ -275,3 +275,86 @@ número de rotas trocadas e custo de 0,0016 de F1 (sinal consistente nas 5 semen
 entre elas). Decisão: a triagem recebe o texto sem PII; o RAG mantém os placeholders. As 107 trocas que
 restam vêm de palavras de assinatura ("regards", "reach me"), sensibilidade que é candidata natural a
 cenário de drift no D8.
+
+## §8 — Drift: o alarme mais alto não é o mais caro, e o rótulo de idioma mentia (15/11)
+
+**Protocolo.** Referência e lote atual são as duas metades do conjunto de teste, separadas por família
+de paráfrases (nunca o treino: nele o modelo é confiante demais, e a coluna `confidence` derivaria por
+construção). Cada cenário muda uma coisa só na metade atual. O Evidently 0.7.23 recebe 8 colunas que a
+API conhece na inferência: 5 descritores do texto e 3 saídas do modelo. O rótulo é verificado à parte,
+porque só chega depois que o chamado é resolvido. Métodos fixos: Wasserstein normalizado (numéricas) e
+Jensen-Shannon (categóricas). Drift no lote quando ≥ 50% das 8 colunas derivam. Cada cenário roda em 20
+sementes (42–61), e o controle de cada semente é um teste A/A. Script:
+`python -m support_copilot.drift.report` → `reports/drift_summary.md`.
+
+### O rótulo `de` do dataset tem 27% de inglês
+
+A primeira rodada do cenário em alemão deu uma queda de F1 pequena demais para um modelo treinado só em
+inglês. Lendo os chamados sorteados, o segundo já era inglês. Votação por *stop-words* (`is_german`):
+
+| recorte | escrito em inglês | escrito em alemão |
+|---|---|---|
+| treino (`en`) | 99,5% | 0,01% |
+| teste (`en`) | 99,6% | 0,0% |
+| **pool de drift (`de`)** | **27,3%** | 71,7% |
+
+Com o pool filtrado (só alemão de verdade), semente 42:
+
+| pool usado | colunas que derivam | F1 macro | ΔF1 contra o controle |
+|---|---|---|---|
+| rótulo `de` do dataset (contaminado) | 7/8 | 0,293 | −0,071 |
+| **detectado como alemão** | 6/8 | **0,182** | **−0,182** |
+
+A contaminação escondia 60% do dano. O recorte em inglês está limpo, então treino e teste não mudam.
+
+### Limiar padrão de 0,1 alarma até em lote limpo, por causa das famílias
+
+Duas metades limpas do teste diferem mais do que duas amostras independentes: as paráfrases de uma
+família vão juntas para um lado, então o tamanho efetivo da amostra é menor. Wasserstein normalizado do
+tamanho do texto entre metades, 20 divisões:
+
+| como as metades são divididas | média | máximo | divisões ≥ 0,1 |
+|---|---|---|---|
+| aleatória (por ticket) | 0,037 | 0,068 | 0/20 |
+| **por família** | 0,080 | 0,132 | **6/20** |
+
+Por isso cada coluna ganhou um limiar calibrado em 50 divisões A/A (sementes 1000–1049, nunca usadas na
+avaliação): o p95 dos escores limpos, nunca abaixo do 0,1 do Evidently. Ficaram 0,12 para tamanho e
+palavras, 0,14 para `oov_share`, 0,11 para não-letras e 0,1 para o resto. No controle, o alarme de
+tamanho caiu de 30% para 10% das sementes; o drift no lote ficou em 0/20 nos dois regimes. A semente 42
+publicada é uma das que ainda marcam 2 colunas (0,125 contra 0,122): o lote não é dado como derivado, e
+por isso a decisão é no nível do lote, não da coluna.
+
+*Ressalva:* a calibração foi decidida depois de ver o controle da semente 42 com o limiar padrão. As
+sementes de calibração e de avaliação são disjuntas, mas a decisão de calibrar não foi pré-registrada.
+
+### Resultado, 20 sementes
+
+| cenário | drift no lote (calibrado / padrão) | colunas mais afetadas | rótulo deriva | ΔF1 macro (pareado) | acurácia | F1 do roteamento |
+|---|---|---|---|---|---|---|
+| control | 0/20 / 0/20 | — | 0/20 | 0 | 0,383 | 0,690 |
+| category_mix | **8/20** / 15/20 | confiança, fila e rota previstas (100%) | 20/20 | −0,018 ± 0,020 | **0,455** | **0,721** |
+| text_noise | 20/20 / 20/20 | tamanho, OOV, não-letras (100%) | 0/20 | −0,053 ± 0,016 | 0,347 | 0,656 |
+| language_de | 20/20 / 20/20 | OOV, não-ASCII, confiança, fila (100%) | 0/20 | **−0,190 ± 0,024** | 0,266 | 0,553 |
+| signature | 10/20 / 12/20 | OOV, não-letras (100%) | 0/20 | −0,011 ± 0,005 | 0,378 | 0,689 |
+
+**Leitura.**
+1. **Drift não é degradação, nos dois sentidos.** O incidente de cobrança (`category_mix`) mexe em todas
+   as saídas do modelo e no rótulo, e a acurácia **sobe** (0,383 → 0,455), porque cobrança é uma fila
+   fácil. A assinatura dispara drift em metade das semanas e custa 1 ponto de F1. O texto ruidoso é o
+   inverso: as saídas do modelo não mudam (fila prevista deriva em 0/20) enquanto o F1 cai 5 pontos.
+   Quem vigiasse só a distribuição das previsões não veria a degradação.
+2. **O alarme mais alto é o mais caro só no idioma.** Alemão: 6,5 colunas por semente e metade do F1
+   (0,368 → 0,179). E o roteamento piora para o lado caro: 75,5% vão para o RAG (66,4% no controle, semente 42), cujo
+   manual é em inglês.
+3. **A regra de 50% das colunas é cega para mudança de mix.** Das 8 colunas, só 3 são saídas do modelo,
+   e numa mudança de mix só elas mexem (100% das sementes), então o lote só é dado como derivado em
+   8/20. A mudança de mix aparece inteira no rótulo (20/20), que chega atrasado. Recomendação para o
+   README (D10), [PRESCRITO]: alertar quando qualquer saída do modelo derivar, independentemente do
+   total de colunas.
+4. **O rótulo separa os dois tipos de mudança.** Deriva 20/20 só na mudança de mix (P(y) muda) e 0/20 no
+   alemão (P(y) igual ao do inglês: o pool tem a mesma proporção de filas). É o desenho que o cenário
+   pretendia.
+
+**Privacidade.** O monitoramento não guarda o texto: 8 números e categorias por chamado, calculados
+na inferência, depois de `strip_pii` (teste garante que nada do texto vai para a tabela monitorada).
