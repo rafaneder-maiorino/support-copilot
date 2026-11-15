@@ -5,7 +5,7 @@ decide se ele vai para o **assistente RAG** sobre um manual em PDF, com **guardr
 **monitoramento de drift** e empacotamento em **Docker**.
 
 > Em construção. Estado atual: dados (D1), modelo + MLflow (D2), API de triagem (D3), RAG e `/chat`
-> (D4–D5) e guardrails em três camadas (D6).
+> (D4–D5), guardrails em três camadas (D6), `/ticket` (D7) e monitoramento de drift com Evidently (D8).
 > O que já foi feito, dia a dia, está em [`docs/diario.md`](docs/diario.md); os achados com
 > números, em [`docs/findings.md`](docs/findings.md).
 
@@ -118,6 +118,37 @@ curl -s localhost:8000/ticket -H 'content-type: application/json' \
 
 Avaliação do RAG em perguntas novas e do `/ticket` sobre os 3.266 chamados de teste:
 `uv run python scripts/eval_rag.py` (~15 min) → [`reports/rag_eval.md`](reports/rag_eval.md).
+
+## Drift do classificador (Evidently)
+
+```bash
+uv run python -m support_copilot.drift.simulate            # lotes de cada cenário -> data/processed/drift/
+uv run python -m support_copilot.drift.report              # ~2,5 min -> reports/drift_summary.md + HTML em reports/_build/
+uv run python -m support_copilot.drift.report --publish    # também copia os HTML para reports/
+```
+
+Referência e lote atual são as duas metades do teste, separadas **por família de paráfrases**. Cada
+cenário muda uma coisa só: `control` (nada; controle negativo), `category_mix` (incidente de cobrança:
+muda a proporção das filas), `text_noise` (erros de digitação, mensagens truncadas, símbolos),
+`language_de` (chamados em alemão, do recorte que nunca entrou no treino) e `signature` (linha de
+contato no fim do chamado).
+
+O Evidently não recebe o texto do chamado: recebe **descritores** que a API calcula na inferência
+(tamanho, palavras, % de palavras fora do vocabulário do próprio modelo, % de não-letras, % de não-ASCII)
+e as **saídas do modelo** (fila prevista, rota, confiança). O rótulo é verificado à parte, porque só
+chega depois que o chamado é resolvido. Limiares por coluna calibrados em 50 divisões limpas (A/A).
+
+| cenário (20 sementes) | drift no lote | F1 macro (Δ contra o controle) |
+|---|---|---|
+| control | 0/20 | 0,368 |
+| category_mix | 8/20 (rótulo: 20/20) | −0,018 ± 0,020 |
+| text_noise | 20/20 | −0,053 ± 0,016 |
+| language_de | 20/20 | **−0,190 ± 0,024** |
+| signature | 10/20 | −0,011 ± 0,005 |
+
+Relatórios: [`reports/drift_report.html`](reports/drift_report.html) (alemão, drift detectado),
+[`reports/drift_report_control.html`](reports/drift_report_control.html) (controle, sem drift) e
+[`reports/drift_summary.md`](reports/drift_summary.md). Leitura em [`docs/findings.md` §8](docs/findings.md).
 
 ## Resultado atual do classificador
 

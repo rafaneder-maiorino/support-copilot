@@ -1,0 +1,11 @@
+{
+  "n_chars": 0.122,
+  "n_words": 0.12,
+  "oov_share": 0.142,
+  "non_letter_share": 0.112,
+  "non_ascii_share": 0.1,
+  "confidence": 0.1,
+  "pred_queue": 0.1,
+  "pred_route": 0.1,
+  "label": 0.1
+}

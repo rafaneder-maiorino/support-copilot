@@ -50,6 +50,56 @@ saem as histórias do roteiro (formato STAR: situação → o que fizemos → re
 | 14/11 | bug de relatório | A primeira versão do relatório dizia que a mediana do cosseno dos chamados técnicos era 0,683, acima do limiar, com 89% deles escalados | A mediana era só dos respondidos (os escalados não têm fonte). O script passou a registrar a melhor evidência de todo chamado: mediana real 0,624 | ★ |
 | 14/11 | teste errado | O teste do `strip_pii` esperava que a palavra "CPF" sumisse do texto | Quem escreveu "CPF" foi o usuário; só o número é dado pessoal. O teste foi corrigido, e não o código | ★ |
 | 14/11 | sem falso positivo | Guardrails rodaram nos 2.110 chamados técnicos reais do teste | **0 bloqueios**: nenhum chamado benigno foi barrado | ★★ |
+| 15/11 | bug de ferramenta | O Evidently 0.7.23 (a versão mais nova no PyPI) não importa com o pandas 3: usa `infer_dtype_from_object`, uma função interna que o pandas 3 removeu | pandas fixado em `>=2.2,<3` (2.3.3) e Evidently fixado em `==0.7.23`. Conferido: 108 testes antigos verdes, `prepare` gera o mesmo `prepare_summary.md` e o relatório de drift sai idêntico depois de refazer os dados | ★★ |
+| 15/11 | **bug de dado** | O cenário "chamados em alemão" derrubava o F1 só 7 pontos, pouco para um modelo treinado só em inglês. O 2º chamado sorteado do pool `de` estava em inglês | Votação por *stop-words*: **27,3%** do pool marcado `de` é inglês (o recorte `en` está limpo: 0,0–0,01%). Com o pool filtrado, a queda de F1 vai de −0,071 para **−0,182**: a contaminação escondia 60% do dano (findings §8) | ★★★ |
+| 15/11 | **falso alarme** | No lote de controle (limpo), o Evidently marcou "drift" em tamanho e número de palavras com o limiar padrão 0,1 | As paráfrases de uma família vão juntas para um lado, o que encolhe a amostra efetiva. Entre metades limpas, o escore de tamanho é 0,080 (por família) contra 0,037 (aleatório), e passa de 0,1 em 6/20 divisões contra 0/20. Limiar por coluna calibrado em 50 divisões A/A: alarme de tamanho no controle de 30% para 10% das sementes; drift no lote 0/20 | ★★★ |
+| 15/11 | **drift ≠ degradação** | Incidente de cobrança (mudança de mix das filas): todas as saídas do modelo e o rótulo derivam em 20/20 sementes, e a acurácia **sobe** de 0,383 para 0,455 | Cobrança é uma fila fácil. O F1 macro quase não muda (−0,018 ± 0,020). Alarme sem prejuízo (findings §8) | ★★★ |
+| 15/11 | **degradação sem drift nas previsões** | Texto com erros de digitação e truncado: o F1 cai 5 pontos, mas a fila prevista deriva em **0/20** sementes | Quem vigia só a distribuição das previsões não vê o problema; os descritores do texto (tamanho, OOV) pegam em 20/20 | ★★ |
+| 15/11 | ponto cego | A regra do Evidently "drift quando ≥ 50% das colunas derivam" deu drift só em 8/20 sementes do incidente de cobrança | Só 3 das 8 colunas são saídas do modelo, e numa mudança de mix só elas se mexem (100%). Recomendação [PRESCRITO] para o README: alertar quando qualquer saída do modelo derivar | ★★ |
+| 15/11 | aviso inofensivo | `RuntimeWarning: invalid value encountered in divide` durante o relatório | Vem de `numpy` (`corrcoef`) chamado dentro do Evidently; a causa provável (não verificada) é a correlação com uma coluna quase constante (`non_ascii_share` é quase sempre 0 em inglês). Os escores de drift saem idênticos entre rodadas | ★ |
+| 15/11 | pendente | O alvo do Makefile para o drift não pôde ser gravado (arquivo protegido contra escrita remota) | Funciona por `uv run python -m support_copilot.drift.report`; trecho para colar no resumo do dia | ★ |
+
+---
+
+## 15/11/2026 (dom) — D8 adiantado: drift com Evidently
+
+**Feito**
+- `support_copilot.drift.simulate`: cinco cenários semeados sobre a metade "atual" do teste (separada da referência **por família de paráfrases**): `control`, `category_mix` (incidente de cobrança, muda P(y)), `text_noise` (erros de digitação, truncamento, símbolos), `language_de` (alemão real, do pool nunca usado no treino) e `signature` (linha de contato no fim).
+- `support_copilot.drift.report`: descritores calculáveis na inferência (tamanho, palavras, % fora do vocabulário do próprio TF-IDF, % não-letra, % não-ASCII) + saídas do modelo (fila, rota, confiança) → Evidently `DataDriftPreset` + drift do rótulo à parte. Limiares calibrados em 50 testes A/A; 20 sementes por cenário; F1 com bootstrap.
+- HTML publicado: `reports/drift_report.html` (alemão, "Dataset Drift is detected", 6/8 colunas) e `reports/drift_report_control.html` (controle, "NOT detected"). `reports/drift_summary.md` e `reports/drift_thresholds.json` versionados (determinísticos).
+- Filtro de idioma no pool alemão (`is_german`) depois de achar 27% de inglês nele.
+- Evidently fixado em 0.7.23 e pandas em `<3`. README com a seção de drift. 120 testes (eram 108).
+
+**Decisões**
+- **Referência = metade do teste, não o treino:** no treino o modelo é confiante demais, e a confiança derivaria por construção.
+- **Sem texto bruto no monitoramento:** só descritores e saídas do modelo, calculados depois do `strip_pii`. É o mesmo princípio dos logs da API (LGPD), e um teste garante.
+- **Métodos fixos (Wasserstein e Jensen-Shannon) em vez da escolha automática por tamanho de amostra:** são tamanhos de efeito, então o veredito não muda com o tamanho do lote.
+- **Limiar por coluna calibrado em A/A** (p95, nunca abaixo de 0,1), em sementes separadas das de avaliação. Ressalva: a decisão de calibrar veio depois de ver o controle da semente 42.
+- **Publicar a semente 42, mesmo com 2 colunas marcadas no controle:** escolher outra semente seria escolher o resultado. O lote não é dado como derivado, e a explicação está no findings §8.
+- **Rótulo fora da regra do lote:** em produção ele chega atrasado; entra no relatório como métrica separada.
+
+**Números (20 sementes, limiares calibrados)**
+| cenário | drift no lote | rótulo deriva | F1 macro | ΔF1 pareado | acurácia | F1 roteamento |
+|---|---|---|---|---|---|---|
+| control | 0/20 | 0/20 | 0,368 ± 0,018 | 0 | 0,383 | 0,690 |
+| category_mix | 8/20 | 20/20 | 0,351 | −0,018 ± 0,020 | **0,455** | 0,721 |
+| text_noise | 20/20 | 0/20 | 0,316 | −0,053 ± 0,016 | 0,347 | 0,656 |
+| language_de | 20/20 | 0/20 | **0,179** | **−0,190 ± 0,024** | 0,266 | 0,553 |
+| signature | 10/20 | 0/20 | 0,357 | −0,011 ± 0,005 | 0,378 | 0,689 |
+
+Limiares calibrados: 0,122 (tamanho), 0,120 (palavras), 0,142 (OOV), 0,112 (não-letras), 0,1 (demais). Relatório completo: ~2,5 min.
+
+**Validação:** ruff limpo · 120 testes · relatório rodado 3 vezes: duas idênticas byte a byte, a terceira depois de refazer o `prepare` com pandas 2 (só muda a frase que foi editada) · HTML aberto no Chrome headless: "Dataset Drift is detected" (alemão) e "NOT detected" (controle).
+
+**Hipóteses**
+- *Refutada:* "o pool `de` do dataset é alemão". 27,3% é inglês.
+- *Refutada:* "o limiar padrão do Evidently não alarma em lote limpo". Alarma em 30% das sementes no tamanho do texto, por causa das famílias de paráfrases.
+- *Confirmada:* drift não é degradação: a mudança de mix dispara alarme e melhora a acurácia; o texto ruidoso degrada sem mexer nas previsões.
+- *Confirmada:* o rótulo separa os cenários: deriva só quando P(y) muda (mix), nunca no alemão.
+
+**Pendências**
+- Colar no Makefile os alvos `drift-simulate` e `drift-report` (arquivo protegido).
+- README (D10): regra de alerta por saída do modelo como [PRESCRITO].
 
 ---
 
