@@ -1,0 +1,27 @@
+# Build context = only what the image needs. Secrets and local state never enter it.
+.env
+.env.*
+!.env.example
+.git
+.github
+.venv
+**/__pycache__
+.pytest_cache
+.ruff_cache
+.DS_Store
+_to_delete
+
+# Local data and run state (rebuilt or mounted, never baked)
+data/raw
+data/processed
+data/index
+data/models_cache
+mlflow.db
+mlartifacts
+mlruns
+logs
+reports
+docs
+tests
+scripts
+notebooks
