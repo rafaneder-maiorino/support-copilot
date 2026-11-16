@@ -1,4 +1,4 @@
-.PHONY: install download audit prepare mlflow-server train tune serve lint format test all build-manual eval-retrieval eval-guardrails
+.PHONY: install download audit prepare mlflow-server train tune serve lint format test all build-manual eval-retrieval eval-guardrails eval-rag eval-triage-pii drift-simulate drift-report requirements docker-build docker-up docker-down
 
 install:  ## create the environment (uv sync)
 	uv sync
@@ -45,3 +45,27 @@ eval-retrieval:  ## chunk-size comparison + refusal threshold -> reports/retriev
 
 eval-guardrails:  ## attack suite + holdout + external set -> reports/guardrails_eval.md
 	uv run python scripts/eval_guardrails.py
+
+eval-rag:  ## golden set + /ticket over the test set, cosine vs reranker (~15 min)
+	uv run python scripts/eval_rag.py
+
+eval-triage-pii:  ## triage robustness to personal data
+	uv run python scripts/eval_triage_pii.py
+
+drift-simulate:  ## seeded drift batches -> data/processed/drift/
+	uv run python -m support_copilot.drift.simulate
+
+drift-report:  ## Evidently report (~2.5 min); add ARGS=--publish to copy the HTML to reports/
+	uv run python -m support_copilot.drift.report $(ARGS)
+
+requirements:  ## export requirements.txt from uv.lock
+	uv export --frozen --no-hashes --format requirements-txt --no-dev --no-emit-project > requirements.txt
+
+docker-build:  ## build the image
+	docker compose build
+
+docker-up:  ## api on :8000 + mlflow on :5001, waits for healthy
+	docker compose up --build --wait
+
+docker-down:  ## stop the stack
+	docker compose down
