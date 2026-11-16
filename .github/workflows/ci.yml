@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.5"
+          enable-cache: true
+      - name: Install (exactly uv.lock)
+        run: uv sync --locked
+      - name: requirements.txt in sync with uv.lock
+        run: |
+          uv export --frozen --no-hashes --format requirements-txt --no-dev --no-emit-project \
+            | diff -u requirements.txt - \
+            || { echo "::error::requirements.txt is stale. Regenerate with the command in its header."; exit 1; }
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Tests
+        run: uv run pytest -q
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: lint-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start api + mlflow (waits for both healthchecks)
+        # The runner user is uid 1001 and the image user is uid 1000: let MLflow create mlflow.db in the
+        # bind-mounted checkout. Docker Desktop (macOS/Windows) maps ownership and needs no such step.
+        run: |
+          chmod a+w .
+          docker compose up -d --build --wait --wait-timeout 300
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          curl -fsS http://localhost:8000/health
+          curl -fsS -X POST http://localhost:8000/predict -H 'content-type: application/json' \
+            -d '{"text": "VPN keeps disconnecting after the firewall update"}'
+          curl -fsS -X POST http://localhost:8000/chat -H 'content-type: application/json' \
+            -d '{"question": "How do I enable two-factor authentication?"}' | grep -q '"grounded":true'
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8000/predict \
+            -H 'content-type: application/json' -d '{"text": ""}')" = 422
+          curl -fsS http://localhost:5001/health
+          docker image ls support-copilot:latest --format 'image size: {{.Size}}'
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop
+        if: always()
+        run: docker compose down
