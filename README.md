@@ -1,4 +1,6 @@
-# Support Copilot — Datathon Fase 5 (FIAP MLET)
+# Support Copilot: triagem, RAG e guardrails para suporte técnico
+
+> Projeto desenvolvido na Pós Tech em Machine Learning Engineering (FIAP), como Datathon da Fase 5.
 
 Plataforma de suporte híbrido: um **modelo clássico** classifica o chamado em uma de 10 filas e
 decide se ele vai para o **assistente RAG** sobre um manual em PDF, com **guardrails**,
