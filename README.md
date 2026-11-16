@@ -5,11 +5,38 @@ decide se ele vai para o **assistente RAG** sobre um manual em PDF, com **guardr
 **monitoramento de drift** e empacotamento em **Docker**.
 
 > Em construção. Estado atual: dados (D1), modelo + MLflow (D2), API de triagem (D3), RAG e `/chat`
-> (D4–D5), guardrails em três camadas (D6), `/ticket` (D7) e monitoramento de drift com Evidently (D8).
+> (D4–D5), guardrails em três camadas (D6), `/ticket` (D7), monitoramento de drift com Evidently (D8)
+> e Docker + CI (D9).
 > O que já foi feito, dia a dia, está em [`docs/diario.md`](docs/diario.md); os achados com
 > números, em [`docs/findings.md`](docs/findings.md).
 
-## Como rodar (macOS / Linux)
+## Como rodar com Docker (caminho mais curto)
+
+Pré-requisito: Docker Desktop (ou Docker Engine com o plugin `compose`) aberto.
+
+```bash
+docker compose up --build        # 1º build: ~3–7 min (baixa ~660 MB); depois, segundos
+```
+
+| serviço | endereço | o que é |
+|---|---|---|
+| `api` | http://localhost:8000/docs | Swagger com `/predict`, `/chat`, `/ticket` e `/health` |
+| `mlflow` | http://localhost:5001 | MLflow UI (porta 5001: no macOS a 5000 é do AirPlay) |
+
+- **Sem chave de API:** o `/chat` roda com `LLM_PROVIDER=fake` (extrativo, cita a página). Para usar
+  Gemini ou OpenAI, copie `.env.example` para `.env` e preencha; o compose lê o `.env` se ele existir.
+  A chave nunca entra na imagem (`.dockerignore` exclui o `.env`, e um teste garante).
+- **Offline:** o modelo de embeddings e o índice FAISS são gerados no `docker build`; o container
+  sobe e responde sem internet (testado com `--network none`).
+- **MLflow:** o serviço usa o mesmo `mlflow.db` e `mlartifacts/` da raiz do projeto (montados no
+  container), os mesmos do `make mlflow-server`. Num clone limpo ele começa vazio; para ver os runs,
+  treine contra ele com `uv run python -m support_copilot.model.train` (o padrão já é a porta 5001;
+  isso também reexporta o modelo de `models/`).
+- A imagem instala **exatamente** o `requirements.txt`, exportado do `uv.lock`
+  (`uv export --frozen --no-hashes --format requirements-txt --no-dev --no-emit-project > requirements.txt`).
+  O CI falha se os dois divergirem.
+
+## Como rodar sem Docker (macOS / Linux)
 
 Pré-requisitos: [uv](https://docs.astral.sh/uv/) e Python 3.11 (o `uv` instala se faltar).
 No macOS, o XGBoost precisa do OpenMP: `brew install libomp`.
