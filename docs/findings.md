@@ -358,3 +358,36 @@ sementes de calibração e de avaliação são disjuntas, mas a decisão de cali
 
 **Privacidade.** O monitoramento não guarda o texto: 8 números e categorias por chamado, calculados
 na inferência, depois de `strip_pii` (teste garante que nada do texto vai para a tabela monitorada).
+
+---
+
+## §9 — Um `requirements.txt` fixado não basta: o pip resolve de novo (16/11)
+
+**Contexto.** O enunciado pede `requirements.txt` e um Dockerfile que instale todas as dependências.
+O arquivo é exportado do `uv.lock` (184 pacotes fixados), e o Dockerfile instala a partir dele.
+
+**O que a primeira imagem mostrou.** 3,58 GB em disco (996 MB comprimida). O maior diretório do
+ambiente era `nvidia/` com **417 MB**: a NCCL, biblioteca de comunicação entre várias GPUs, que o
+XGBoost declara como dependência em qualquer Linux. A imagem não tem GPU, o projeto treina em CPU e o
+modelo servido é uma regressão logística.
+
+**Primeira correção, e por que ela não bastou.** Um `override-dependencies` no `pyproject.toml` tira a
+NCCL do lock, e o `requirements.txt` exportado passa a marcá-la como `sys_platform == 'never'`. Mesmo
+assim, o build seguinte baixou os 336 MB do pacote: o `pip install -r` lê os metadados do próprio
+XGBoost e resolve as dependências de novo, ignorando o que o lock decidiu.
+
+**Correção.** `pip install --no-deps -r requirements.txt`. O arquivo é o fechamento completo do lock,
+então o pip não tem nada a resolver; qualquer coisa que ele resolvesse por conta própria seria uma
+versão que o lock não aprovou. Um teste estático exige a flag, e o CI compara o `requirements.txt` com
+um `uv export` novo a cada PR.
+
+| imagem | em disco | comprimida | `nvidia/` |
+|---|---|---|---|
+| `pip install -r` (lock com NCCL) | 3,58 GB | 996 MB | 417 MB |
+| `pip install --no-deps -r` (lock sem NCCL) | **2,80 GB** (−22%) | **659 MB** (−34%) | 0 |
+
+Medido com `docker image ls` e `du -sm` dentro do container (Mac M2, arm64); no CI (amd64), 2,84 GB.
+O XGBoost importa e treina (`fit` de teste) sem a NCCL dentro do container.
+
+**Lição.** Fixar versões é metade da reprodutibilidade; a outra metade é impedir o instalador de
+decidir de novo. A diferença só apareceu porque o tamanho da imagem foi medido, e não presumido.
