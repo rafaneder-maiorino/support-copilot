@@ -58,6 +58,57 @@ saem as histórias do roteiro (formato STAR: situação → o que fizemos → re
 | 15/11 | ponto cego | A regra do Evidently "drift quando ≥ 50% das colunas derivam" deu drift só em 8/20 sementes do incidente de cobrança | Só 3 das 8 colunas são saídas do modelo, e numa mudança de mix só elas se mexem (100%). Recomendação [PRESCRITO] para o README: alertar quando qualquer saída do modelo derivar | ★★ |
 | 15/11 | aviso inofensivo | `RuntimeWarning: invalid value encountered in divide` durante o relatório | Vem de `numpy` (`corrcoef`) chamado dentro do Evidently; a causa provável (não verificada) é a correlação com uma coluna quase constante (`non_ascii_share` é quase sempre 0 em inglês). Os escores de drift saem idênticos entre rodadas | ★ |
 | 15/11 | pendente | O alvo do Makefile para o drift não pôde ser gravado (arquivo protegido contra escrita remota) | Funciona por `uv run python -m support_copilot.drift.report`; trecho para colar no resumo do dia | ★ |
+| 16/11 | obstáculo | A execução agendada encontrou o Docker Desktop fechado (`docker.sock` inexistente) | Aberto com `open -a Docker`; o daemon (29.9.2) respondeu em ~45 s e nada mais travou | ★ |
+| 16/11 | **achado de engenharia** | A primeira imagem tinha **3,58 GB** em disco (996 MB comprimida). O maior pacote, com 417 MB, era a NVIDIA NCCL (comunicação entre várias GPUs), que o XGBoost puxa em todo Linux, inclusive numa imagem sem GPU que serve um modelo linear | `override-dependencies` no `pyproject.toml` tira a NCCL do lock. Imagem **2,80 GB / 659 MB** (−22% em disco, −34% comprimida); o XGBoost importa e treina sem ela (conferido dentro do container) | ★★ |
+| 16/11 | **bug de build** | Com a NCCL já fora do `requirements.txt`, o `pip install -r` baixou os 336 MB de novo: o pip lê os metadados do próprio XGBoost e resolve de novo, ignorando o lock | `pip install --no-deps -r requirements.txt`: o arquivo exportado do `uv.lock` já é o fechamento completo, então o pip não deve resolver nada. Log do build: "Ignoring nvidia-nccl-cu12"; um teste estático exige a flag | ★★ |
+| 16/11 | decisão | Onde o MLflow do compose guarda os runs. `mlflow.db` e `mlartifacts/` (247 MB) são gitignored, e montar só o arquivo `mlflow.db` num clone limpo faz o Docker criar uma **pasta** com esse nome (o SQLite quebra) | O serviço monta a raiz do projeto e usa os mesmos caminhos do `make mlflow-server`. No Mac, a UI do container mostra os 3 experimentos e 9 runs existentes; num clone limpo começa vazia e grava ali (run de teste com artefato conferido) | ★ |
+| 16/11 | validação | O container precisa de internet para subir? | Não: `docker run --network none` → `/health` 200 com 166 trechos e healthcheck `healthy`. Embeddings (67 MB) e índice FAISS (0,6 MB) são gerados no build, com a mesma chave de cache do Mac (`85374e41…`) | ★★ |
+| 16/11 | armadilha prevista | No CI (Linux), o usuário do runner é uid 1001 e o da imagem é uid 1000: o MLflow não conseguiria criar o `mlflow.db` na pasta montada | `chmod a+w .` só no job do CI, com comentário. No Docker Desktop (macOS/Windows) a posse é mapeada e o passo não é necessário. CI verde: `docker compose up --wait` + smoke test em 4m17s | ★ |
+| 16/11 | resolvido | `StarletteDeprecationWarning` do `TestClient` (pendente desde 13/11) | Não aparece mais: 0 ocorrências em 128 testes. Sumiu com a atualização de dependências do D8 | ★ |
+| 16/11 | pendente | Os alvos `docker-*` e `requirements` do Makefile não puderam ser gravados (arquivo protegido contra escrita remota) | Tudo funciona pelos comandos diretos (`docker compose up --build`, `uv export ...`); trecho para colar no resumo do dia | ★ |
+
+---
+
+## 16/11/2026 (seg) — D9 adiantado: Docker, `requirements.txt` e CI
+
+**Feito**
+- `requirements.txt` exportado do `uv.lock` (`uv export --frozen --no-hashes --format requirements-txt --no-dev --no-emit-project`), 184 pacotes fixados; o comando fica no cabeçalho do arquivo.
+- `Dockerfile` multi-stage: instala exatamente o `requirements.txt` (`--no-deps`), depois o pacote; no build, `python -m support_copilot.rag.warmup` baixa o modelo de embeddings e monta o índice FAISS. Runtime com usuário não-root (uid 1000), `HEALTHCHECK` em `/health`, `LLM_PROVIDER=fake` e `HF_HUB_OFFLINE=1` por padrão, sem segredo (`.dockerignore` estreito).
+- `docker-compose.yml`: `api` (8000) + `mlflow` (5001, mesma imagem, mesma versão do lock, `--allowed-hosts`), `.env` opcional (`required: false`).
+- NVIDIA NCCL removida das instalações Linux (`[tool.uv] override-dependencies`).
+- CI no GitHub Actions: `uv sync --locked`, `requirements.txt` sincronizado com o lock (diff), ruff, pytest e um job Docker com `docker compose up --wait` + smoke test (`/health`, `/predict`, `/chat` com `grounded`, 422, MLflow).
+- `tests/test_packaging.py` (8 testes): pinos = `uv.lock`, sem dependência de dev, sem o próprio projeto, `USER` não-root, `HEALTHCHECK`, nenhuma chave na imagem nem no compose, portas 8000/5001 (nunca 5000), warmup constrói e reaproveita o índice.
+- README com a seção "Como rodar com Docker". 128 testes (eram 120).
+
+**Decisões**
+- **Índice e embeddings dentro da imagem:** o container sobe em ~0,5 s de RAG e funciona sem internet. Custo: +69 MB, e mudar `RAG_CHUNK_SIZE`/`RAG_CHUNK_OVERLAP` em runtime exige internet para reconstruir (a chave do cache muda).
+- **A imagem instala todas as dependências do projeto** (inclusive MLflow, Evidently e XGBoost), como pede o enunciado, e serve também ao serviço do MLflow. Uma imagem só de serving seria menor, mas teria dois conjuntos de dependências para manter.
+- **NCCL fora:** o projeto treina em CPU e serve um modelo linear; a NCCL só serve para várias GPUs. Reversível apagando o bloco `[tool.uv]`.
+- **`--no-deps` no pip:** o `requirements.txt` é o fechamento do lock; deixar o pip resolver de novo é abrir mão da reprodutibilidade (foi assim que a NCCL voltou).
+- **MLflow do compose = MLflow local:** mesma base (`mlflow.db` + `mlartifacts/` na raiz), para não existirem dois históricos.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| imagem com NCCL (arm64) | 3,58 GB disco / 996 MB comprimida | `docker image ls` |
+| imagem final (arm64 / amd64) | **2,80 GB / 659 MB** · 2,84 GB no CI | `docker image ls` (Mac e job do CI) |
+| maiores pacotes restantes | xgboost 227 MB · plotly 188 · pyarrow 156 · scipy 122 | `du -sm site-packages/*` no container |
+| build frio, clone limpo (Mac M2) | **376 s** (`build --no-cache` + `up --wait`) | `logs/d9_clean_clone.log` |
+| build + subida + smoke test no CI | 4m17s (amd64); lint + testes 1m21s | GitHub Actions |
+| warmup no build | 166 trechos em 25 s; índice 0,6 MB, embeddings 67 MB | log do build |
+| subida da API no container | modelo + RAG prontos em 0,5 s; `healthy` em ~5 s | logs do compose |
+
+**Validação:** ruff limpo · 128 testes · clone limpo do GitHub (branch) com `docker compose build --no-cache && up --wait`: `/health`, `/docs` 200, `/predict` válido, `""` e 1001 caracteres → 422, `/chat` responde com as páginas 53–54 e 96 (WAN failover), injeção → 400 `input.injection`, `/ticket` de cobrança → `routed`; MLflow UI 200 e um run com artefato gravado no store do clone · `--network none` → `healthy` · CI verde (2 jobs).
+
+**Hipóteses**
+- *Refutada:* "um pacote fora do `requirements.txt` não entra na imagem". O `pip install -r` re-resolve pelos metadados dos pacotes e o trouxe de volta.
+- *Confirmada:* "o XGBoost funciona sem a NCCL em CPU": import e um `fit` dentro do container.
+- *Confirmada:* "o índice gerado no Linux é o mesmo do Mac": mesma chave de cache e 166 trechos.
+
+**Pendências**
+- Colar no Makefile os alvos do trecho do resumo do dia (`requirements`, `docker-build`, `docker-up`, `docker-down`).
+- D10: README executivo (nuvem, LGPD, caminho do avaliador com estes tempos).
+- D11: testar o `docker compose up` no Windows (WSL2), inclusive a montagem da raiz no MLflow.
 
 ---
 

@@ -1,0 +1,46 @@
+# docker compose up --build
+#   API     -> http://localhost:8000/docs   (LLM_PROVIDER=fake unless .env says otherwise)
+#   MLflow  -> http://localhost:5001        (5000 is AirPlay on macOS)
+# Both services run the same image, so MLflow is exactly the version pinned in uv.lock.
+
+services:
+  api:
+    build: .
+    image: support-copilot:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      # Optional. Copy .env.example to .env and set LLM_PROVIDER + the provider key to use a real LLM.
+      - path: .env
+        required: false
+    restart: unless-stopped
+
+  mlflow:
+    build: .
+    image: support-copilot:latest
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      - sqlite:////store/mlflow.db
+      - --artifacts-destination
+      - /store/mlartifacts
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5001"
+      - --allowed-hosts
+      - mlflow:*,localhost:*,127.0.0.1:*
+    ports:
+      - "5001:5001"
+    volumes:
+      # Same store as `make mlflow-server` (./mlflow.db + ./mlartifacts, both gitignored): runs logged
+      # locally show up here, and `make train` against :5001 lands in the same place.
+      - ./:/store
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(urllib.request.urlopen('http://127.0.0.1:5001/health', timeout=4).status != 200)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped

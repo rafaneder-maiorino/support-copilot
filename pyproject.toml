@@ -44,6 +44,14 @@ dev = [
     "ruff>=0.17.5",
 ]
 
+[tool.uv]
+# xgboost pulls NVIDIA NCCL (multi-GPU collectives, ~417 MB installed) on every Linux box. This
+# project trains on CPU only and serves a linear model, so the Docker image drops it (D9, diario).
+override-dependencies = [
+    "nvidia-nccl-cu12 ; sys_platform == 'never'",
+    "nvidia-nccl-cu13 ; sys_platform == 'never'",
+]
+
 [tool.ruff]
 line-length = 120
 target-version = "py311"
