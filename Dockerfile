@@ -33,7 +33,7 @@ RUN python -m support_copilot.rag.warmup
 # ---------------------------------------------------------------- runtime
 FROM ${PYTHON_IMAGE} AS runtime
 LABEL org.opencontainers.image.title="support-copilot" \
-      org.opencontainers.image.source="https://github.com/rafaneder-maiorino/tech-challenge-fase5"
+      org.opencontainers.image.source="https://github.com/rafaneder-maiorino/support-copilot"
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
