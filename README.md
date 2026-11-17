@@ -6,24 +6,79 @@ Plataforma de suporte híbrido: um **modelo clássico** classifica o chamado em 
 decide se ele vai para o **assistente RAG** sobre um manual em PDF, com **guardrails**,
 **monitoramento de drift** e empacotamento em **Docker**.
 
-> Em construção. Estado atual: dados (D1), modelo + MLflow (D2), API de triagem (D3), RAG e `/chat`
-> (D4–D5), guardrails em três camadas (D6), `/ticket` (D7), monitoramento de drift com Evidently (D8)
-> e Docker + CI (D9).
-> O que já foi feito, dia a dia, está em [`docs/diario.md`](docs/diario.md); os achados com
-> números, em [`docs/findings.md`](docs/findings.md).
+```mermaid
+flowchart LR
+    U[Chamado] --> V{Pydantic<br/>1..1000 chars}
+    V -->|422| U
+    V --> C[Triagem<br/>TF-IDF + LogReg · MLflow]
+    C -->|não técnico| Q[Fila de destino]
+    C -->|técnico| G[Guardrail de entrada<br/>+ máscara de PII]
+    G -->|bloqueado| E[Escala com motivo]
+    G --> R[FAISS local<br/>manual em PDF]
+    R -->|sem contexto| E
+    R --> L[LLM<br/>Gemini · OpenAI · fake]
+    L --> O[Guardrail de saída<br/>citação · PII]
+    O --> A[Resposta com páginas]
+    C -.descritores.-> D[Evidently<br/>drift]
+```
 
-## Como rodar com Docker (caminho mais curto)
+O que foi feito, dia a dia, está em [`docs/diario.md`](docs/diario.md); os achados com números, em
+[`docs/findings.md`](docs/findings.md).
+
+## Resultados em números
+
+| área | resultado | como foi medido |
+|---|---|---|
+| Triagem (10 filas) | F1 macro **0,371** contra 0,045 da classe majoritária; acurácia 0,383 | teste separado **por família de paráfrases** (o split aleatório dava 0,658 por memória, [findings §1](docs/findings.md)) |
+| Roteamento técnico × não técnico | F1 **0,693** | mesmo teste |
+| Campeão × 2º colocado | +0,018 ± 0,014 de F1, vence 5 de 5 folds | validação cruzada pareada por fold, [`reports/model_selection.md`](reports/model_selection.md) |
+| Recuperação do RAG | hit@1 **0,750** · recall@4 **0,938** · MRR 0,844 | 28 perguntas novas, registradas antes da rodada ([`reports/rag_eval.md`](reports/rag_eval.md)); no conjunto de desenvolvimento era 0,958 de hit@1 |
+| Guardrails: ataques | dev 22/22 · holdout 4/14 (28,6%) com as regras v1 → 14/14 depois da correção | [`reports/guardrails_eval.md`](reports/guardrails_eval.md) |
+| Guardrails: generalização | **9,9%** das 263 injeções externas bloqueadas na entrada, mas **0/263** chegam ao LLM (o limiar de similaridade segura o resto) | `deepset/prompt-injections`, nunca usado para ajustar regras ([findings §6](docs/findings.md)) |
+| Guardrails: falsos positivos | 0/50 perguntas legítimas · 1/399 benignos externos · 0/2.110 chamados técnicos reais | mesmo relatório |
+| Drift | chamados em alemão: drift em 20/20 lotes e F1 −0,190; lote limpo: 0/20 | 20 sementes, limiares calibrados em 50 testes A/A ([`reports/drift_summary.md`](reports/drift_summary.md)) |
+| Docker | imagem 2,80 GB (659 MB comprimida); clone limpo → `docker compose up` em 376 s | Mac M2, build sem cache |
+| Latência (sem LLM real) | `/predict` p50 1,5 ms · `/ticket` p50 23,8 ms | 300 requisições por rota no contêiner, provedor `fake` |
+
+## Caminho do avaliador
+
+Do zero até a API respondendo, com os tempos medidos num clone limpo do GitHub (MacBook Pro M2;
+passos 0–2 em 17/11/2026, passo 3 em 16/11/2026; detalhes no [diário](docs/diario.md)).
+
+| passo | comando | tempo | o que faz |
+|---|---|---|---|
+| 0 | `git clone https://github.com/rafaneder-maiorino/support-copilot.git && cd support-copilot` | 3 s | |
+| 1 | `make install` | **26 s** (cache do `uv` vazio) · 2 s (cache cheio) | cria o `.venv` (925 MB) a partir do `uv.lock` |
+| 2 | `make all` | **139 s** | baixa o dataset e confere o SHA-256, prepara os splits, roda o lint e os **128 testes** |
+| 3 | `docker compose up --build` | **376 s** no primeiro build · segundos depois | sobe a API e o MLflow |
+
+Depois do passo 3:
+
+| serviço | endereço | o que é |
+|---|---|---|
+| `api` | http://localhost:8000/docs | Swagger com `/predict`, `/chat`, `/ticket` e `/health` |
+| `mlflow` | http://localhost:5001 | MLflow UI (porta **5001**: no macOS a 5000 é do AirPlay) |
+
+Os passos 1 e 2 são opcionais para quem só quer ver a API: o passo 3 sozinho basta, porque a imagem
+traz o modelo, o manual e o índice. O modelo campeão está versionado em `models/`, então nada precisa
+ser treinado.
+
+**Windows (notas preventivas; a validação completa no Windows 11 é a próxima etapa):**
+
+- Docker Desktop com WSL2. O passo 3 é o caminho recomendado no Windows.
+- O `make` não vem com o Windows. Sem ele, rode os comandos equivalentes no PowerShell:
+  `uv sync` (passo 1); `uv run python -m support_copilot.data.prepare`, `uv run ruff check .` e
+  `uv run pytest -q` (passo 2). Cada alvo do [`Makefile`](Makefile) é um comando de uma linha.
+- O `.gitattributes` fixa LF nos arquivos de texto e marca PDF, PNG e `.joblib` como binários:
+  clonar com `core.autocrlf=true` não converte o manual nem o modelo.
+
+## Como rodar com Docker (detalhes)
 
 Pré-requisito: Docker Desktop (ou Docker Engine com o plugin `compose`) aberto.
 
 ```bash
 docker compose up --build        # 1º build: ~3–7 min (baixa ~660 MB); depois, segundos
 ```
-
-| serviço | endereço | o que é |
-|---|---|---|
-| `api` | http://localhost:8000/docs | Swagger com `/predict`, `/chat`, `/ticket` e `/health` |
-| `mlflow` | http://localhost:5001 | MLflow UI (porta 5001: no macOS a 5000 é do AirPlay) |
 
 - **Sem chave de API:** o `/chat` roda com `LLM_PROVIDER=fake` (extrativo, cita a página). Para usar
   Gemini ou OpenAI, copie `.env.example` para `.env` e preencha; o compose lê o `.env` se ele existir.
@@ -179,16 +234,65 @@ Relatórios: [`reports/drift_report.html`](reports/drift_report.html) (alemão, 
 [`reports/drift_report_control.html`](reports/drift_report_control.html) (controle, sem drift) e
 [`reports/drift_summary.md`](reports/drift_summary.md). Leitura em [`docs/findings.md` §8](docs/findings.md).
 
-## Resultado atual do classificador
+## Arquitetura de nuvem (proposta em Azure)
 
-| | valor |
-|---|---|
-| F1 macro (teste sem vazamento de paráfrases) | 0,371 |
-| F1 do roteamento técnico × não técnico | 0,693 |
-| Classe majoritária | 0,045 |
+O mesmo contêiner deste repositório, em **Azure Container Apps** na região **Brazil South**. Detalhes,
+dimensionamento e equivalência com AWS e GCP em [`docs/arquitetura-nuvem.md`](docs/arquitetura-nuvem.md).
 
-Por que esses números são menores que os de um split aleatório, e por que este é o número honesto:
-[`docs/findings.md` §1](docs/findings.md).
+```mermaid
+flowchart LR
+    U[Cliente] --> FD[Front Door + WAF] --> APIM[API Management<br/>cota por cliente]
+    APIM --> API[Container Apps<br/>API · escala por requisições concorrentes]
+    API -->|identidade gerenciada| KV[Key Vault<br/>chave do LLM]
+    API -->|pergunta mascarada + top-k| AOAI[Azure OpenAI<br/>deployment por geografia]
+    API -->|eventos sem texto| LA[Log Analytics]
+    LA --> JD[Job agendado<br/>drift Evidently]
+    JD --> BLOB[Blob Storage<br/>PDFs · índice · relatórios]
+    JT[Job de treino] --> MLF[MLflow<br/>PostgreSQL + Blob]
+    GH[GitHub Actions] -->|OIDC| ACR[Container Registry] --> API
+```
+
+- **Escala por requisições HTTP concorrentes, não por CPU:** com um LLM real, a réplica passa a maior
+  parte do tempo esperando o provedor, com a CPU ociosa. Réplica de 1 vCPU / 2 GiB (a API usa
+  405 MiB com modelo e índice carregados), mínimo de 1 réplica para não pagar a subida no primeiro
+  chamado, máximo ajustado pela cota do LLM.
+- **Segredos** no Key Vault, lidos por identidade gerenciada; CI/CD com federação OIDC, sem senha
+  guardada.
+- **Gargalo do FAISS em memória:** cada réplica carrega o próprio índice, gerado no build. Hoje são
+  166 trechos e 0,6 MB, então não pesa. Com 1 milhão de trechos seriam ~1,5 GB de vetores por
+  réplica (`n × 384 × 4 bytes`), e cada atualização do manual exigiria nova imagem. Evolução: índice
+  gerado por job e guardado no Blob; depois, **Azure AI Search** como banco vetorial único, com filtro
+  por produto, que também ataca as 223 respostas a chamados de outros produtos
+  ([findings §7](docs/findings.md)).
+- **Monitoramento:** o job de drift roda o mesmo relatório do D8 sobre os descritores do período.
+  Regra de alerta [PRESCRITO]: qualquer saída do modelo que derive dispara, e não a regra padrão do
+  Evidently (≥ 50% das colunas), que disparou em só 8 de 20 sementes do incidente de cobrança.
+
+| Azure | AWS | GCP |
+|---|---|---|
+| Container Apps (+ Jobs) | ECS on Fargate (+ Scheduled Tasks) | Cloud Run (+ jobs) |
+| Key Vault · Blob · Container Registry | Secrets Manager · S3 · ECR | Secret Manager · Cloud Storage · Artifact Registry |
+| Azure OpenAI · Azure AI Search | Bedrock · OpenSearch Service | Vertex AI (Gemini) · Vector Search |
+| Log Analytics + Azure Monitor | CloudWatch | Cloud Logging + Monitoring |
+
+## Privacy by Design e LGPD
+
+A regra do projeto: **nenhum dado pessoal sai da máquina antes de passar pelas defesas**, e o que não
+precisa sair, não sai. Análise completa, com base legal, retenção e direitos do titular, em
+[`docs/lgpd.md`](docs/lgpd.md).
+
+| camada | status | evidência |
+|---|---|---|
+| E-mail, CPF (com dígito verificador), CNPJ, telefone e cartão (Luhn) mascarados **antes** da busca e do LLM | [IMPLEMENTADO] | gerador espião prova que o LLM só vê `[EMAIL]`, `[CPF]`... (`tests/test_guardrails.py`, `tests/test_ticket.py`) |
+| Triagem sem dado pessoal (`strip_pii`) | [IMPLEMENTADO] | e-mail no chamado desviava a fila; sem PII, 107 rotas trocadas contra 186 ([`reports/triage_pii.md`](reports/triage_pii.md)) |
+| Minimização: só a pergunta mascarada e até 4 trechos do manual saem; embeddings locais; sem contexto, o LLM não é chamado | [IMPLEMENTADO] | dos 3.266 chamados de teste, 35,4% nem chegam ao RAG e só 223 (6,8%) são respondidos pelo LLM ([`reports/rag_eval.md`](reports/rag_eval.md)) |
+| Logs e respostas de erro sem o texto do chamado (hash + tamanho; 422 sem eco) | [IMPLEMENTADO] | `test_logs_never_contain_raw_text`, `test_422_does_not_echo_the_ticket_text` |
+| Monitoramento de drift só com descritores numéricos | [IMPLEMENTADO] | `test_descriptors_never_keep_the_raw_text` |
+| Chave do LLM fora do código e da imagem | [IMPLEMENTADO] | `test_no_secret_can_reach_the_image` |
+| Hash dos logs com HMAC e chave no Key Vault (o SHA-256 sem segredo é pseudonimização, não anonimização) | [PRESCRITO] | |
+| Nomes e endereços (regex não pega: "Maria Silva, Rua Augusta 1500" passa intacto) → reconhecimento de entidades | [PRESCRITO] | risco residual declarado |
+| Transferência internacional (Art. 33): LLM com processamento no Brasil (Azure OpenAI por geografia) ou cláusulas-padrão da ANPD (Res. 19/2024) | [PRESCRITO] | Gemini **gratuito** fica fora de produção: os termos pedem para não enviar dado pessoal |
+| Base legal (contrato + legítimo interesse), retenção, direitos do titular, revisão de decisão automatizada (Art. 20), RIPD | [PRESCRITO] | [`docs/lgpd.md`](docs/lgpd.md) |
 
 **Dataset:** [Tobi-Bueck/customer-support-tickets](https://huggingface.co/datasets/Tobi-Bueck/customer-support-tickets)
 (CC BY-NC 4.0). Decisão e justificativa em [`docs/dataset.md`](docs/dataset.md).
