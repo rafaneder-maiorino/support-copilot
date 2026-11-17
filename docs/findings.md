@@ -391,3 +391,41 @@ O XGBoost importa e treina (`fit` de teste) sem a NCCL dentro do container.
 
 **Lição.** Fixar versões é metade da reprodutibilidade; a outra metade é impedir o instalador de
 decidir de novo. A diferença só apareceu porque o tamanho da imagem foi medido, e não presumido.
+
+---
+
+## §10 — O mascaramento protege o que tem formato, não o que tem nome; e o "sem texto" dos logs é pseudônimo (17/11)
+
+**Contexto.** O D10 pede o README de nuvem e LGPD, com o que está implementado separado do que é
+recomendação. Para escrever a coluna [IMPLEMENTADO] com honestidade, cada camada foi conferida contra
+o código e os testes, e não contra a intenção.
+
+**O que a conferência mostrou.**
+
+| camada | o que se presumia | o que o código faz | consequência |
+|---|---|---|---|
+| máscara de PII | "dado pessoal não chega ao LLM" | troca e-mail, CPF, CNPJ, telefone e cartão; `"My name is Maria Silva, I live at Rua Augusta 1500, Sao Paulo"` passa com **0 trocas** | nome e endereço chegam ao LLM. Declarado como risco residual; reconhecimento de entidades fica [PRESCRITO] |
+| logs | "logs sem dado pessoal" | `text_sha` = SHA-256 do texto, 16 hexadecimais, **sem segredo** | quem tem um texto candidato confirma se ele passou pela API. É pseudonimização, e dado pseudonimizado reidentificável continua pessoal. HMAC com chave no Key Vault fica [PRESCRITO] |
+| provedor de LLM | o plano previa "Gemini com free tier para a demo" | os termos da Gemini API pedem para **não enviar** informação pessoal aos serviços gratuitos (o conteúdo pode melhorar produtos e ser lido por revisores) | free tier só com dados fictícios; produção só com tier pago ou Azure OpenAI com processamento na geografia do recurso |
+
+**Números de dimensionamento (medidos, contêiner no Mac M2, provedor `fake`).**
+
+| medida | valor | como |
+|---|---|---|
+| memória da API com modelo + índice | 403 MiB parada · 405 MiB depois de 930 requisições | `docker stats` |
+| `/predict` p50 / p95 / p99 | 1,5 / 2,0 / 3,3 ms | 300 requisições sequenciais, 1 cliente |
+| `/chat` p50 / p95 / p99 | 18,0 / 32,4 / 43,4 ms | idem, sem LLM real |
+| `/ticket` p50 / p95 / p99 | 23,8 / 38,2 / 46,2 ms | idem |
+| vetores do índice | 166 × 384 × 4 B = 255 KB (arquivo 0,6 MB) | conta; 1 milhão de trechos ≈ 1,5 GB por réplica |
+
+**O que mudou no projeto.**
+- A regra de escala proposta é por **requisições concorrentes**, não por CPU: sem o LLM, o serviço
+  responde em dezenas de milissegundos; com ele, a réplica espera a rede com a CPU ociosa, e uma
+  regra por CPU não veria a fila crescer.
+- A tabela de LGPD do README tem duas linhas [PRESCRITO] que nasceram desta conferência (HMAC e
+  entidades nomeadas), em vez de afirmar uma proteção que o código não dá.
+- `tests/test_docs.py` falha se o README ou o `docs/lgpd.md` citarem como evidência um teste que não
+  existe, ou se um link relativo quebrar.
+
+**Lição.** "[IMPLEMENTADO]" é uma afirmação testável. Escrita antes de reler o código, a tabela teria
+duas proteções que não existem.
