@@ -66,6 +66,70 @@ saem as histórias do roteiro (formato STAR: situação → o que fizemos → re
 | 16/11 | armadilha prevista | No CI (Linux), o usuário do runner é uid 1001 e o da imagem é uid 1000: o MLflow não conseguiria criar o `mlflow.db` na pasta montada | `chmod a+w .` só no job do CI, com comentário. No Docker Desktop (macOS/Windows) a posse é mapeada e o passo não é necessário. CI verde: `docker compose up --wait` + smoke test em 4m17s | ★ |
 | 16/11 | resolvido | `StarletteDeprecationWarning` do `TestClient` (pendente desde 13/11) | Não aparece mais: 0 ocorrências em 128 testes. Sumiu com a atualização de dependências do D8 | ★ |
 | 16/11 | pendente | Os alvos `docker-*` e `requirements` do Makefile não puderam ser gravados (arquivo protegido contra escrita remota) | Tudo funciona pelos comandos diretos (`docker compose up --build`, `uv export ...`); trecho para colar no resumo do dia | ★ |
+| 17/11 | resolvido | Os alvos do Makefile pendentes desde o D7 (`eval-rag`, `drift-*`, `requirements`, `docker-*`) | Entraram no Makefile pelo PR #13; o README do D10 já usa `make install` e `make all` | ★ |
+| 17/11 | resolvido | O `main` tinha uma alteração não commitada no `Dockerfile`: o rótulo `image.source` ainda apontava para `tech-challenge-fase5`, sobra do renome de 16/11 | Commit próprio neste PR; um teste novo falha se README ou docs voltarem a citar o nome antigo | ★ |
+| 17/11 | **bloqueio** | O disco do Mac estava com **293 MiB livres (100%)**. No meio de um `docker compose up --build` de conferência, o Docker Desktop passou a recusar escrita ("read-only file system" ao extrair a camada do XGBoost) e o build falhou depois de 154 s | Apagados só os clones temporários desta execução (~3 GB em `/tmp`), o que deixou 1,5 GiB livres. O Docker **não** foi reiniciado (a pilha da Fase 4 está rodando nele). O tempo do passo 3 do README fica o medido no D9 (376 s). Precisa do Rafael: liberar espaço e reiniciar o Docker Desktop | ★★ |
+| 17/11 | **achado de privacidade** | Ao conferir a coluna [IMPLEMENTADO] contra o código: "My name is Maria Silva, I live at Rua Augusta 1500, Sao Paulo" passa pela máscara com **0 trocas**. O regex cobre o que tem formato (e-mail, CPF, cartão), não o que tem nome | Declarado como risco residual no README e no `docs/lgpd.md`; reconhecimento de entidades fica [PRESCRITO] (findings §10) | ★★ |
+| 17/11 | **achado de privacidade** | Os logs "sem texto" guardam `text_sha`, um SHA-256 **sem segredo**: quem tem um texto candidato confirma se ele passou pela API | É pseudonimização, não anonimização. HMAC com chave no Key Vault fica [PRESCRITO] (findings §10) | ★★ |
+| 17/11 | **decisão contra-intuitiva** | O plano previa a demo com o Gemini gratuito. Os termos da Gemini API pedem para **não enviar** informação pessoal aos serviços gratuitos (o conteúdo pode ser usado para melhorar produtos e lido por revisores) | Free tier só com dados fictícios; produção só com tier pago ou Azure OpenAI com deployment por geografia (processa na geografia do recurso). Registrado na tabela de transferência internacional do `docs/lgpd.md` | ★★ |
+| 17/11 | decisão | Escalar a API por CPU ou por requisições concorrentes? | Sem o LLM, `/ticket` responde em 23,8 ms (p50, contêiner, 300 requisições); com o LLM real, a réplica espera a rede com a CPU ociosa. Escolhida a regra HTTP de concorrência do Container Apps; réplica de 1 vCPU / 2 GiB porque a API usa 405 MiB | ★★ |
+| 17/11 | validação | Caminho do avaliador cronometrado num clone limpo do GitHub | clone 3 s · `make install` **26 s** com o cache do `uv` vazio (2 s cheio; `.venv` de 925 MB) · `make all` **139 s** com 128 testes verdes | ★ |
+| 17/11 | aviso | Os testes mostram `DeprecationWarning: langchain-community is being sunset` (vem do `rag/retriever.py`) | Não quebra nada hoje. Registrado como dívida: migrar o FAISS do LangChain para o pacote de integração indicado pela biblioteca, junto com a evolução para o Azure AI Search | ★ |
+
+---
+
+## 17/11/2026 (ter) — D10 adiantado: README de nuvem, LGPD e caminho do avaliador
+
+**Feito**
+- `docs/arquitetura-nuvem.md`: proposta em Azure (Brazil South) com diagrama Mermaid, papel e motivo
+  de cada serviço, regra e parâmetros de escala com os números medidos, o gargalo do FAISS em memória
+  (com a conta de memória por réplica e a evolução em duas etapas até o Azure AI Search), o
+  monitoramento em produção e a equivalência com AWS e GCP.
+- `docs/lgpd.md`: fluxo do dado (o que sai da infraestrutura e o que não sai), nove camadas marcadas
+  [IMPLEMENTADO] (com o teste que prova) ou [PRESCRITO], transferência internacional por provedor de
+  LLM (Art. 33 e Res. CD/ANPD nº 19/2024), base legal, retenção, direitos do titular, decisão
+  automatizada (Art. 20), RIPD e incidentes.
+- README reorganizado: diagrama do fluxo no topo, **tabela de resultados**, **caminho do avaliador**
+  com tempos medidos e notas de Windows, resumos de nuvem e LGPD com links para os documentos.
+- `tests/test_docs.py` (9 testes): links relativos do README e dos docs existem, as seções pedidas
+  estão no README, nenhum doc cita o nome antigo do repositório nem a porta 5000, e todo teste citado
+  como evidência de LGPD existe. 137 testes (eram 128).
+- findings §10.
+
+**Decisões**
+- **Azure, não AWS/GCP**, por ser a especialidade do projeto; a tabela de equivalência mostra que o
+  desenho não depende do provedor.
+- **Escala por concorrência HTTP**, mínimo de 1 réplica (sem escala a zero na API: a subida custa o
+  download de 659 MB e ~5 s até `healthy`).
+- **FAISS por réplica continua** no tamanho atual (0,6 MB); a evolução é prescrita com o gatilho
+  explícito (tamanho do índice e frequência de atualização do manual), e não por moda.
+- **[IMPLEMENTADO] só com teste ou relatório citado.** Duas proteções que pareciam implementadas
+  (nomes e hash de log) viraram [PRESCRITO] depois da conferência.
+- **Gemini gratuito fora de produção**, pelos termos do serviço.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| clone limpo → `make install` | 26 s (cache vazio) · 2 s (cache cheio) | `date` antes e depois, `UV_CACHE_DIR` novo para o caso frio |
+| `make all` | 139 s, 128 testes | clone limpo do `main` |
+| memória da API | 403 → 405 MiB | `docker stats`, antes e depois de 930 requisições |
+| latência p50 / p95 / p99 | `/predict` 1,5 / 2,0 / 3,3 ms · `/chat` 18,0 / 32,4 / 43,4 · `/ticket` 23,8 / 38,2 / 46,2 | 300 requisições sequenciais por rota, contêiner no Mac M2, provedor `fake` |
+| vetores por réplica | 255 KB hoje; ~1,5 GB com 1 milhão de trechos | `n × 384 × 4 B` |
+
+**Validação:** ruff limpo · 137 testes · os dois diagramas Mermaid renderizam (`mmdc`) · links
+relativos conferidos por teste · `docker compose up` de conferência **não** concluído (disco cheio,
+ver tabela).
+
+**Hipóteses**
+- *Refutada:* "dado pessoal não chega ao LLM". Nome e endereço chegam; só o que tem formato é
+  mascarado.
+- *Refutada:* "logs sem texto são anônimos". O hash sem segredo é reversível por dicionário.
+- *Confirmada:* "a CPU não é o gargalo": sem LLM, o caminho inteiro do `/ticket` leva ~24 ms.
+
+**Pendências**
+- Rafael: liberar espaço no disco do Mac e reiniciar o Docker Desktop (bloqueia o D11).
+- D11: clone limpo no Mac e no Windows 11 seguindo só o README; validar as notas de Windows.
+- Teste de carga com LLM real para calibrar a concorrência por réplica (depende da chave).
 
 ---
 
