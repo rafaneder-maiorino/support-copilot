@@ -75,6 +75,38 @@ saem as histórias do roteiro (formato STAR: situação → o que fizemos → re
 | 17/11 | decisão | Escalar a API por CPU ou por requisições concorrentes? | Sem o LLM, `/ticket` responde em 23,8 ms (p50, contêiner, 300 requisições); com o LLM real, a réplica espera a rede com a CPU ociosa. Escolhida a regra HTTP de concorrência do Container Apps; réplica de 1 vCPU / 2 GiB porque a API usa 405 MiB | ★★ |
 | 17/11 | validação | Caminho do avaliador cronometrado num clone limpo do GitHub | clone 3 s · `make install` **26 s** com o cache do `uv` vazio (2 s cheio; `.venv` de 925 MB) · `make all` **139 s** com 128 testes verdes | ★ |
 | 17/11 | aviso | Os testes mostram `DeprecationWarning: langchain-community is being sunset` (vem do `rag/retriever.py`) | Não quebra nada hoje. Registrado como dívida: migrar o FAISS do LangChain para o pacote de integração indicado pela biblioteca, junto com a evolução para o Azure AI Search | ★ |
+| 18/11 | **bloqueio** | A execução agendada encontrou o Mac sem DNS: a rota padrão passa pelo túnel de VPN (`utun6`), cujo resolvedor `10.2.0.1` não responde. `git pull` e `gh` falham com "Could not resolve host" | A conexão em si funciona (`ping 1.1.1.1` 127 ms, `dig @1.1.1.1 github.com` responde): o problema é só o DNS da VPN. Configuração de rede **não** alterada (fora do escopo); 3 tentativas em ~3 min; commit local, push pendente | ★ |
+| 18/11 | resolvido | Disco do Mac cheio (293 MiB livres, bloqueio de 17/11) | **43 GiB livres** (23% usado) em 18/11 | ★ |
+
+---
+
+## 18/11/2026 (qua) — sem bloco no dia; D11 não adiantado
+
+**Feito**
+- Conferido o plano: D1–D10 concluídos (todos os P0/P1 marcados). O próximo bloco é o D11 (23/11),
+  validação cruzada Mac + Windows.
+- **D11 não foi adiantado**, por dois motivos: (1) metade do DoD é o clone limpo no Windows 11, que
+  depende do Rafael; (2) o Mac estava sem DNS (ver tabela), e o clone limpo do Mac precisa do GitHub
+  e do Hugging Face.
+- Registrado o estado do ambiente para a próxima execução.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| disco livre no Mac | 43 GiB (23% usado) | `df -h /` |
+| conexão por IP | OK, 127 ms | `ping -c 2 1.1.1.1` |
+| DNS do sistema | falha (timeout de 8–10 s) | `curl https://api.github.com` com resolvedor `10.2.0.1` (VPN, `utun6`) |
+| DNS público | OK | `dig github.com @1.1.1.1` |
+| Docker Desktop | fechado | `docker info` → `docker.sock` inexistente |
+| `pytest-cov` no ambiente | ausente | `import pytest_cov` → `ModuleNotFoundError` (a cobertura do D11 precisa de rede para instalar) |
+
+**Validação:** nenhuma alteração de código; só este diário.
+
+**Pendências**
+- Rafael: desligar ou corrigir o DNS da VPN no Mac (ou desconectar a VPN) antes da próxima
+  execução; depois, `git push -u origin docs/d11-status-2026-11-18` para subir este registro.
+- D11 (23/11): clone limpo no Mac (dá para adiantar quando a rede voltar) e no Windows 11 (Rafael);
+  cobertura dos módulos críticos com `pytest-cov` (dependência de dev nova).
 
 ---
 
