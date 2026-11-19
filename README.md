@@ -37,20 +37,22 @@ O que foi feito, dia a dia, está em [`docs/diario.md`](docs/diario.md); os acha
 | Guardrails: generalização | **9,9%** das 263 injeções externas bloqueadas na entrada, mas **0/263** chegam ao LLM (o limiar de similaridade segura o resto) | `deepset/prompt-injections`, nunca usado para ajustar regras ([findings §6](docs/findings.md)) |
 | Guardrails: falsos positivos | 0/50 perguntas legítimas · 1/399 benignos externos · 0/2.110 chamados técnicos reais | mesmo relatório |
 | Drift | chamados em alemão: drift em 20/20 lotes e F1 −0,190; lote limpo: 0/20 | 20 sementes, limiares calibrados em 50 testes A/A ([`reports/drift_summary.md`](reports/drift_summary.md)) |
-| Docker | imagem 2,80 GB (659 MB comprimida); clone limpo → `docker compose up` em 376 s | Mac M2, build sem cache |
+| Docker | imagem 2,80 GB (659 MB comprimida); clone limpo → `docker compose up` em 376–383 s | Mac M2, build sem cache (16/11 e 19/11) |
+| Testes | 146 testes; cobertura **98%** nos módulos críticos (validação, guardrails, `/chat`, `/ticket`) e 83% no pacote | `pytest-cov` com portões de 95% e 80% no CI ([`docs/validacao.md`](docs/validacao.md)) |
 | Latência (sem LLM real) | `/predict` p50 1,5 ms · `/ticket` p50 23,8 ms | 300 requisições por rota no contêiner, provedor `fake` |
 
 ## Caminho do avaliador
 
-Do zero até a API respondendo, com os tempos medidos num clone limpo do GitHub (MacBook Pro M2;
-passos 0–2 em 17/11/2026, passo 3 em 16/11/2026; detalhes no [diário](docs/diario.md)).
+Do zero até a API respondendo, com os tempos medidos num clone limpo do GitHub (MacBook Pro M2,
+19/11/2026; o tempo do passo 1 com cache vazio é de 17/11). A conferência passo a passo, endpoint
+por endpoint, está em [`docs/validacao.md`](docs/validacao.md).
 
 | passo | comando | tempo | o que faz |
 |---|---|---|---|
 | 0 | `git clone https://github.com/rafaneder-maiorino/support-copilot.git && cd support-copilot` | 3 s | |
 | 1 | `make install` | **26 s** (cache do `uv` vazio) · 2 s (cache cheio) | cria o `.venv` (925 MB) a partir do `uv.lock` |
-| 2 | `make all` | **139 s** | baixa o dataset e confere o SHA-256, prepara os splits, roda o lint e os **128 testes** |
-| 3 | `docker compose up --build` | **376 s** no primeiro build · segundos depois | sobe a API e o MLflow |
+| 2 | `make all` | **138 s** | baixa o dataset e confere o SHA-256, prepara os splits, roda o lint e os testes (**137** na medição; 146 hoje) |
+| 3 | `docker compose up --build` | **383 s** no primeiro build (368 s de build + 15 s até `healthy`) · segundos depois | sobe a API e o MLflow |
 
 Depois do passo 3:
 
@@ -63,8 +65,12 @@ Os passos 1 e 2 são opcionais para quem só quer ver a API: o passo 3 sozinho b
 traz o modelo, o manual e o índice. O modelo campeão está versionado em `models/`, então nada precisa
 ser treinado.
 
-**Windows (notas preventivas; a validação completa no Windows 11 é a próxima etapa):**
+**Windows (notas preventivas; macOS validado em 19/11, Windows 11 em validação, ver
+[`docs/validacao.md`](docs/validacao.md)):**
 
+- Clone numa pasta de caminho curto (até ~90 caracteres, como `C:\Users\<nome>\projects\`): o
+  `.venv` tem caminhos de até 169 caracteres e o limite clássico do Windows é 260. Alternativa:
+  habilitar caminhos longos (`LongPathsEnabled`).
 - Docker Desktop com WSL2. O passo 3 é o caminho recomendado no Windows.
 - O `make` não vem com o Windows. Sem ele, rode os comandos equivalentes no PowerShell:
   `uv sync` (passo 1); `uv run python -m support_copilot.data.prepare`, `uv run ruff check .` e
