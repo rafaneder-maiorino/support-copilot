@@ -40,6 +40,7 @@ build-backend = "uv_build"
 dev = [
     "httpx>=0.28.1",
     "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
     "reportlab>=5.1.0",
     "ruff>=0.17.5",
 ]
@@ -66,3 +67,14 @@ ignore = ["S101"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["slow: trains real models end to end (seconds)"]
+
+[tool.coverage.run]
+source = ["support_copilot"]
+branch = true
+
+[tool.coverage.report]
+# Whole package. The critical modules (input validation, guardrails, RAG chat path, /ticket) have a
+# stricter 95% gate in CI; drift/report.py and data/source.py are exercised by their scripts instead.
+fail_under = 80
+show_missing = true
+skip_covered = true

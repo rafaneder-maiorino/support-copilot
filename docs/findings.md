@@ -429,3 +429,30 @@ o código e os testes, e não contra a intenção.
 
 **Lição.** "[IMPLEMENTADO]" é uma afirmação testável. Escrita antes de reler o código, a tabela teria
 duas proteções que não existem.
+
+---
+
+## §11 — No Windows, o risco de caminho longo está no `.venv`, não no repositório (19/11)
+
+**Contexto.** O D11 valida o clone limpo no macOS e no Windows 11. Antes de levar o projeto ao
+notebook Windows, os riscos conhecidos de checkout no Windows foram medidos no Mac.
+
+**O que se esperava.** Que o repositório fosse o ponto frágil (nomes, maiúsculas, final de linha).
+
+**O que a medida mostrou.** O repositório está limpo: 89 arquivos, maior caminho com 42 caracteres,
+nenhuma colisão de maiúsculas, nenhum nome reservado, 0 arquivos com CRLF no índice. O caminho mais
+longo está no ambiente: **169 caracteres** relativos à raiz do projeto, dentro do `.venv` (um `.pyc`
+de migração de banco do MLflow). Com o limite clássico de 260 caracteres do Windows, a pasta do
+projeto pode ter no máximo ~90 caracteres.
+
+| onde | maior caminho (relativo à raiz) | como |
+|---|---|---|
+| arquivos versionados | 42 | `git ls-files` |
+| `.venv` criado pelo `make install` | **169** | `find .venv -type f`, 8 arquivos acima de 150 |
+
+**Consequência.** O README passou a recomendar clonar num caminho curto (ou habilitar
+`LongPathsEnabled`), e os quatro riscos do repositório viraram testes (`tests/test_portability.py`)
+que rodam no CI. A validação real no Windows 11 confirma ou refuta o limite.
+
+**Lição.** "Funciona num clone limpo" depende de onde o clone fica. O que o avaliador vê não é só o
+repositório, é o repositório mais o ambiente que ele gera.

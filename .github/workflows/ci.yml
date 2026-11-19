@@ -30,8 +30,12 @@ jobs:
         run: |
           uv run ruff check .
           uv run ruff format --check .
-      - name: Tests
-        run: uv run pytest -q
+      - name: Tests + coverage (package >= 80%)
+        run: uv run pytest -q --cov
+      - name: Coverage of critical modules (>= 95%)
+        # input validation, guardrails, the RAG chat path and /ticket orchestration
+        run: |
+          uv run coverage report --fail-under=95 --include='src/support_copilot/api/*,src/support_copilot/guardrails/*,src/support_copilot/rag/chat.py,src/support_copilot/rag/prompts.py,src/support_copilot/ticket.py'
 
   docker:
     runs-on: ubuntu-latest

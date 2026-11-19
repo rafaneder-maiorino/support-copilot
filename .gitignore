@@ -11,3 +11,5 @@ mlartifacts/
 logs/
 data/index/
 data/models_cache/
+.coverage
+htmlcov/
