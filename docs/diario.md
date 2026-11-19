@@ -77,6 +77,69 @@ saem as histórias do roteiro (formato STAR: situação → o que fizemos → re
 | 17/11 | aviso | Os testes mostram `DeprecationWarning: langchain-community is being sunset` (vem do `rag/retriever.py`) | Não quebra nada hoje. Registrado como dívida: migrar o FAISS do LangChain para o pacote de integração indicado pela biblioteca, junto com a evolução para o Azure AI Search | ★ |
 | 18/11 | **bloqueio** | A execução agendada encontrou o Mac sem DNS: a rota padrão passa pelo túnel de VPN (`utun6`), cujo resolvedor `10.2.0.1` não responde. `git pull` e `gh` falham com "Could not resolve host" | A conexão em si funciona (`ping 1.1.1.1` 127 ms, `dig @1.1.1.1 github.com` responde): o problema é só o DNS da VPN. Configuração de rede **não** alterada (fora do escopo); 3 tentativas em ~3 min; commit local, push pendente | ★ |
 | 18/11 | resolvido | Disco do Mac cheio (293 MiB livres, bloqueio de 17/11) | **43 GiB livres** (23% usado) em 18/11 | ★ |
+| 19/11 | resolvido | DNS do Mac pela VPN (bloqueio de 18/11) | Rede normal em 19/11: `git fetch`, `gh` e o clone do GitHub funcionaram; o registro de 18/11, que estava só local, sobe neste PR | ★ |
+| 19/11 | validação | Clone limpo do GitHub no Mac seguindo só o README | clone 3 s · `make install` 2 s · `make all` **138 s** (137 testes) · `docker compose build --no-cache` **368 s** + `up --wait` **15 s**; 10 chamadas conferidas (200, 422, 400 do guardrail, `answered`, `routed`, MLflow 200). Nenhum atrito que impedisse o caminho (`docs/validacao.md`) | ★★ |
+| 19/11 | **achado de portabilidade** | Esperávamos que o risco do Windows estivesse no repositório (nomes, maiúsculas, CRLF). O repositório está limpo (maior caminho 42 caracteres, 0 CRLF, 0 colisões); o caminho mais longo está no `.venv`: **169 caracteres** (`.pyc` de migração do MLflow) | Com o limite de 260 do Windows, a pasta do projeto pode ter no máximo ~90 caracteres. README recomenda caminho curto ou `LongPathsEnabled`; 4 testes de portabilidade no CI (findings §11) | ★★ |
+| 19/11 | custo | O `docker compose build --no-cache` de conferência consumiu ~9 GB de disco (42 → 33 GiB livres), em camadas e cache do BuildKit | Registrado em `docs/validacao.md` com a dica de `docker builder prune`; o cache não foi apagado (pode servir a outros projetos no Docker do Rafael) | ★ |
+| 19/11 | documentação desatualizada | O README dizia "128 testes" desde o D9; o `main` já tinha 137 | Atualizado para 146 (com os testes novos deste bloco) e tempos de 19/11 | ★ |
+| 19/11 | cobertura | Cobertura medida pela primeira vez: 82% no pacote; o adaptador do LLM real (`rag/llm.py`) estava em **69%**, sem nenhum teste do caminho que a chave vai usar | 4 testes com modelo espião, sem chave: o adaptador manda o prompt de sistema e o contexto como dado, junta blocos de conteúdo e a resposta passa pelo guardrail de saída. `llm.py` 69% → 83%; módulos críticos **98%**; portões de 95% e 80% no CI | ★★ |
+
+---
+
+## 19/11/2026 (qui) — D11 adiantado (parte do Mac): clone limpo, portabilidade e cobertura
+
+**Feito**
+- Clone limpo do GitHub no Mac seguindo só o README, cronometrado passo a passo, com 10 chamadas
+  conferidas no contêiner → `docs/validacao.md`.
+- Riscos de checkout no Windows medidos no Mac (maiúsculas, nomes reservados, caminho longo, CRLF)
+  → `tests/test_portability.py` (4 testes) e findings §11.
+- Cobertura com `pytest-cov` (dependência de dev nova, `uv.lock` atualizado; o `requirements.txt` não
+  muda porque exclui o grupo dev). Configuração no `pyproject.toml` e dois portões no CI: pacote ≥ 80%
+  e módulos críticos ≥ 95%.
+- `tests/test_llm.py` (4 testes): o adaptador do LLM real testado com um modelo espião, sem chave.
+- README: tempos de 19/11, 146 testes, linha de testes/cobertura na tabela de resultados, nota de
+  caminho curto no Windows e link para `docs/validacao.md`.
+- Roteiro em PowerShell para a validação no Windows 11 (no fim de `docs/validacao.md`).
+
+**Decisões**
+- **Adiantar só a parte do D11 que não depende do Rafael.** O clone no Windows fica com ele; por isso
+  o DoD do bloco ainda não está cumprido e o PR fica aberto até a validação no Windows.
+- **Portão de cobertura por módulo crítico, e não só no total.** O total (83%) é puxado para baixo
+  por scripts de linha de comando (`drift/report.py`, `data/source.py`) que rodam no `make all`; o
+  número que importa para a nota é o das partes que o avaliador testa (validação, guardrails, RAG).
+- **Sem chave falsa nos testes.** As linhas de `build_generator` que constroem o cliente Gemini/OpenAI
+  continuam sem teste; o adaptador foi testado com um modelo espião no lugar do cliente.
+- **Cache do Docker preservado:** não rodei `docker builder prune`, porque o Docker do Rafael tem a
+  pilha da Fase 4.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| clone → `make install` → `make all` | 3 s → 2 s → **138 s** (137 testes em 80 s) | `date +%s` antes e depois, clone novo em pasta temporária, commit `3d7a326` |
+| `docker compose build --no-cache` | **368 s** | mesmo clone; imagem 2,8 GB |
+| `docker compose up -d --wait` | **15 s** até `api` e `mlflow` healthy | idem |
+| chamadas conferidas | 10/10 como esperado | `curl` (health, docs, predict, 2 × 422, chat, injeção → 400, ticket técnico e não técnico, MLflow) |
+| maior caminho versionado / no `.venv` | 42 / **169** caracteres | `git ls-files`, `find .venv -type f` |
+| cobertura: módulos críticos / pacote | **98%** / 83% (era 82%) | `pytest --cov` com desvios; `coverage report --include=...` |
+| `rag/llm.py` | 69% → 83% | idem |
+| testes | 137 → **146** | `pytest --collect-only` |
+| disco livre | 42 → 33 GiB depois do build sem cache | `df -h` |
+
+**Validação:** ruff limpo · 146 testes verdes · portões de cobertura passam localmente (83% ≥ 80%,
+98% ≥ 95%) · `requirements.txt` igual ao `uv export` · clone temporário apagado e stack derrubada
+(`docker compose down`).
+
+**Hipóteses**
+- *Refutada:* "o risco do Windows está no repositório". Está no `.venv` (169 caracteres).
+- *Confirmada:* "o caminho do avaliador funciona do zero no Mac sem passo manual": 0 intervenções.
+- *Aberta:* o limite de ~90 caracteres para a pasta do projeto no Windows é calculado, não observado;
+  a validação no Windows 11 confirma ou refuta.
+
+**Pendências**
+- Rafael: validação no Windows 11 com o roteiro de `docs/validacao.md`; o resultado completa a tabela
+  do topo daquele arquivo e fecha o DoD do D11 (então o PR pode ser mergeado).
+- Rafael (opcional): alvo `coverage` no Makefile (arquivo protegido contra escrita remota).
+- D12 (24/11): roteiro do vídeo; a tabela de bugs acima é a matéria-prima.
 
 ---
 
