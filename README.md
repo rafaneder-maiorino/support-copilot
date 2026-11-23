@@ -23,7 +23,8 @@ flowchart LR
 ```
 
 O que foi feito, dia a dia, está em [`docs/diario.md`](docs/diario.md); os achados com números, em
-[`docs/findings.md`](docs/findings.md).
+[`docs/findings.md`](docs/findings.md). Cada requisito do enunciado, com o arquivo e o teste que o
+comprovam, está em [`docs/requisitos.md`](docs/requisitos.md).
 
 ## Resultados em números
 
@@ -38,7 +39,7 @@ O que foi feito, dia a dia, está em [`docs/diario.md`](docs/diario.md); os acha
 | Guardrails: falsos positivos | 0/50 perguntas legítimas · 1/399 benignos externos · 0/2.110 chamados técnicos reais | mesmo relatório |
 | Drift | chamados em alemão: drift em 20/20 lotes e F1 −0,190; lote limpo: 0/20 | 20 sementes, limiares calibrados em 50 testes A/A ([`reports/drift_summary.md`](reports/drift_summary.md)) |
 | Docker | imagem 2,80 GB (659 MB comprimida); clone limpo → `docker compose up` em 376–383 s | Mac M2, build sem cache (16/11 e 19/11) |
-| Testes | 160 testes; cobertura **98%** nos módulos críticos (validação, guardrails, `/chat`, `/ticket`) e 83% no pacote | `pytest-cov` com portões de 95% e 80% no CI ([`docs/validacao.md`](docs/validacao.md)) |
+| Testes | 177 testes; cobertura **98%** nos módulos críticos (validação, guardrails, `/chat`, `/ticket`) e 85% no pacote | `pytest-cov` com portões de 95% e 80% no CI ([`docs/validacao.md`](docs/validacao.md)) |
 | Latência (sem LLM real) | `/predict` p50 1,5 ms · `/ticket` p50 23,8 ms | 300 requisições por rota no contêiner, provedor `fake` |
 
 ## Caminho do avaliador
@@ -51,7 +52,7 @@ por endpoint, está em [`docs/validacao.md`](docs/validacao.md).
 |---|---|---|---|
 | 0 | `git clone https://github.com/rafaneder-maiorino/support-copilot.git && cd support-copilot` | 3 s | |
 | 1 | `make install` | **26 s** (cache do `uv` vazio) · 2 s (cache cheio) | cria o `.venv` (925 MB) a partir do `uv.lock` |
-| 2 | `make all` | **138 s** | baixa o dataset e confere o SHA-256, prepara os splits, roda o lint e os testes (**137** na medição; 160 hoje) |
+| 2 | `make all` | **138 s** | baixa o dataset e confere o SHA-256, prepara os splits, roda o lint e os testes (**137** na medição; 177 hoje) |
 | 3 | `docker compose up --build` | **383 s** no primeiro build (368 s de build + 15 s até `healthy`) · segundos depois | sobe a API e o MLflow |
 
 Depois do passo 3:
