@@ -97,7 +97,7 @@ git ls-files --eol | Select-String "w/crlf"        # esperado: nenhuma linha (o 
 Measure-Command { uv sync }
 Measure-Command { uv run python -m support_copilot.data.prepare }
 uv run ruff check .
-uv run pytest -q                                   # esperado: 146 passed
+uv run pytest -q                                   # esperado: 0 failed (160 passed em 23/11)
 
 # 3. Docker Desktop com WSL2 aberto
 Measure-Command { docker compose up --build -d --wait }
