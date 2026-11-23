@@ -83,8 +83,70 @@ saem as histórias do roteiro (formato STAR: situação → o que fizemos → re
 | 19/11 | custo | O `docker compose build --no-cache` de conferência consumiu ~9 GB de disco (42 → 33 GiB livres), em camadas e cache do BuildKit | Registrado em `docs/validacao.md` com a dica de `docker builder prune`; o cache não foi apagado (pode servir a outros projetos no Docker do Rafael) | ★ |
 | 19/11 | documentação desatualizada | O README dizia "128 testes" desde o D9; o `main` já tinha 137 | Atualizado para 146 (com os testes novos deste bloco) e tempos de 19/11 | ★ |
 | 19/11 | cobertura | Cobertura medida pela primeira vez: 82% no pacote; o adaptador do LLM real (`rag/llm.py`) estava em **69%**, sem nenhum teste do caminho que a chave vai usar | 4 testes com modelo espião, sem chave: o adaptador manda o prompt de sistema e o contexto como dado, junta blocos de conteúdo e a resposta passa pelo guardrail de saída. `llm.py` 69% → 83%; módulos críticos **98%**; portões de 95% e 80% no CI | ★★ |
+| 23/11 | **bloqueio** | O bloco do dia é o D11, mas os dois P0 que faltam (clone limpo no Windows 11 e correção do que quebrar) dependem do notebook Windows do Rafael | PR #16 segue aberto (CI verde, `CLEAN`, sem conflito com o `main`). Adiantada a parte do D12 que não depende dele (roteiro e cenas); o D11 fica pendente | ★ |
+| 23/11 | obstáculo | As execuções agendadas de 20 a 22/11 não rodaram: o histórico do Desktop Commander não tem nenhuma chamada entre 19/11 à noite e 23/11; a de 22/11 só disparou em 23/11, 07:12 UTC | Nada se perdeu: D8 a D10 já estavam adiantados. Registrado para explicar o intervalo no diário | ★ |
+| 23/11 | **achado de roteiro** | Ao montar a fala, os três números que pareciam bons demais tinham caído do mesmo jeito fora da distribuição: F1 0,658 → 0,371 (split por família), guardrails 22/22 → 4/14 (holdout), RAG hit@1 0,958 → 0,750 (golden) | Virou a tese do vídeo e o fechamento do bloco R ("medir com honestidade foi o projeto") | ★★★ |
+| 23/11 | decisão | O roteiro foi tratado como artefato testado: as 7 requisições do vídeo estão em `docs/demo/scenes.json`, um teste refaz cada uma contra a API, e outro conta as palavras de cada bloco | 7/7 cenas deram o resultado narrado já na 1ª rodada. Fala com 655 palavras ≈ 4:22 a 150 palavras/min; o A4 estourava a janela (78 palavras = 31 s em 30 s) e foi cortado para 75 | ★★ |
+| 23/11 | honestidade na tela | Nas cenas, a confiança da triagem é baixa: 0,36 no chamado de senha (fila certa), 0,46 no de VPN, 0,83 no de cobrança | Esperado com 10 filas e F1 macro 0,37; a explicação está no bloco A1 e nas notas, para não ser pego de surpresa na pergunta do avaliador | ★ |
+| 23/11 | obstáculo de ferramenta | Nenhuma pasta conectada à sessão, então `device_commit_files` não tinha destino para gravar os arquivos novos | Arquivos escritos direto no repositório pelo Desktop Commander; o `Makefile` não foi tocado | ★ |
 
 ---
+
+## 23/11/2026 (seg) — D11 bloqueado (Windows); D12 adiantado: roteiro STAR e cenas testadas
+
+**Feito**
+- D11: conferido o PR #16 (CI verde nos 2 jobs, `MERGEABLE`/`CLEAN`). Os P0 que faltam são do
+  Rafael (clone limpo no Windows 11, roteiro em PowerShell no fim de `docs/validacao.md`).
+- `docs/video-notes.md`: tese, tabela dos números citados com a fonte de cada um, preparação das
+  cenas (abas, comandos, ordem) e o roteiro teleprompter em 7 blocos STAR com a tela de cada bloco.
+- `docs/demo/scenes.json`: as 7 requisições do vídeo (corpo para colar no Swagger + resultado
+  esperado). `tests/test_demo_scenes.py` refaz cada cena contra a API com o provedor `fake`.
+- `tests/test_video_notes.py`: a ordem dos blocos é S, T, A1–A4, R e soma 5:00; cada bloco cabe na
+  janela a 150 palavras/min; o total fica ≤ 4:40; a contagem no cabeçalho é a medida; as cenas citadas
+  existem.
+- README e roteiro do Windows com a contagem nova de testes (160).
+
+**Decisões**
+- **Adiantar o D12 com o D11 aberto.** A regra da rotina é não adiantar bloco com pendência anterior,
+  mas o que falta do D11 depende só do Windows do Rafael; sem adiantar, o roteiro só sairia depois
+  dele e encostaria na gravação (25/11). Feito só o que não depende dele: o ensaio cronometrado (P1)
+  e a abertura das abas na hora de gravar ficam com ele.
+- **Narração em português**, com chamados, manual e código em inglês na tela como estão. A FIAP avalia
+  em português; o canal do Rafael é em inglês. Fácil de reverter se ele preferir.
+- **PR empilhado sobre o #16** (base `feat/d11-mac-validation`): o diário e o README mudam nos dois
+  PRs, e ramificar do `main` geraria conflito. Quando o #16 for mergeado com `--delete-branch`, o
+  GitHub reaponta este PR para o `main`.
+- **Não mergeado:** o roteiro é a fala do Rafael e precisa da revisão dele; e o PR depende do #16.
+- **150 palavras/min** como ritmo de referência, conservador para narração em português; o limite do
+  total (4:40) deixa 20 s para cliques além da folga de cada bloco.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| fala | **655 palavras ≈ 4:22** | `tests/test_video_notes.py`: palavras das linhas `>` de cada bloco ÷ 150 × 60 |
+| por bloco (palavras / s / janela) | S 68/27/30 · T 49/20/20 · A1 113/45/50 · A2 147/59/70 · A3 119/48/60 · A4 75/30/30 · R 84/34/40 | idem |
+| cenas | **7/7** com o resultado narrado | `uv run pytest -q tests/test_demo_scenes.py`, 9 testes em 5,2 s |
+| cena `ticket-answered` | página 11, `troubleshooting/password_reset`, cosseno 0,726 | resposta da API, provedor `fake` |
+| cena `ticket-pii-masked` | `{"EMAIL": 1, "CPF": 1}`, mesma página 11 (cosseno 0,705) | idem |
+| testes | **160** (146 + 14), cobertura 83% no pacote | `uv run pytest -q --cov` |
+
+**Validação**
+- `uv run ruff format . && uv run ruff check .` limpos; `uv run pytest -q` → 160 passed.
+- Cada número da fala foi conferido contra a fonte da tabela "Números citados" (findings §1, §5, §6,
+  §8; `reports/guardrails_eval.md`, `rag_eval.md`, `drift_summary.md`; `docs/validacao.md`). Uma
+  frase foi corrigida na conferência: "alarme falso no controle em 30% das sementes" virou "marcava o
+  tamanho do texto em 30% dos lotes limpos", porque os 30% são do alarme por coluna (o veredito do
+  lote no controle ficou em 0/20 nos dois regimes).
+
+**Hipóteses**
+- O ritmo de 150 palavras/min é estimativa; o número real sai do ensaio cronometrado do Rafael. Se ele
+  falar a ~170 palavras/min, a fala cai para ~3:51 e sobra tempo para mostrar a cena de reserva
+  (`chat-out-of-manual`).
+
+**Pendências**
+- **Rafael:** validação no Windows 11 (D11, P0) → fecha o PR #16; revisar o roteiro e ensaiar com
+  cronômetro (D12, P1); gravação (D13).
+- O LLM real (Gemini/OpenAI) segue sem teste por falta de chave; o vídeo usa o provedor `fake`.
 
 ## 19/11/2026 (qui) — D11 adiantado (parte do Mac): clone limpo, portabilidade e cobertura
 
