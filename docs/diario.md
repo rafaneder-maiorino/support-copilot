@@ -89,8 +89,65 @@ saem as histórias do roteiro (formato STAR: situação → o que fizemos → re
 | 23/11 | decisão | O roteiro foi tratado como artefato testado: as 7 requisições do vídeo estão em `docs/demo/scenes.json`, um teste refaz cada uma contra a API, e outro conta as palavras de cada bloco | 7/7 cenas deram o resultado narrado já na 1ª rodada. Fala com 655 palavras ≈ 4:22 a 150 palavras/min; o A4 estourava a janela (78 palavras = 31 s em 30 s) e foi cortado para 75 | ★★ |
 | 23/11 | honestidade na tela | Nas cenas, a confiança da triagem é baixa: 0,36 no chamado de senha (fila certa), 0,46 no de VPN, 0,83 no de cobrança | Esperado com 10 filas e F1 macro 0,37; a explicação está no bloco A1 e nas notas, para não ser pego de surpresa na pergunta do avaliador | ★ |
 | 23/11 | obstáculo de ferramenta | Nenhuma pasta conectada à sessão, então `device_commit_files` não tinha destino para gravar os arquivos novos | Arquivos escritos direto no repositório pelo Desktop Commander; o `Makefile` não foi tocado | ★ |
+| 23/11 | decisão | 2ª execução do dia: o D11 segue bloqueado (Windows do Rafael) e o D12 já foi adiantado de manhã. Restava adiantar o D14, que é o fechamento | Feita só a parte que não depende do vídeo: revisão contra os 27 requisitos, conferência de links sem login e a fonte do documento de entrega. Tag `v1.0` e PDF ficam para depois do vídeo e dos merges | ★ |
+| 23/11 | **revisão de requisitos** | A matriz do enunciado foi refeita como teste: cada requisito com arquivo e teste que o comprovam. Duas provas eram só indiretas: acurácia/F1 no MLflow (R04) só se via no print, e o SHA-256 do dataset (R02) não tinha teste | 2 provas novas (as métricas de cada run no MLflow e o download que falha com hash diferente). Resultado: **25 ok · 1 parcial · 1 pendente** (R12 sem chamada real ao LLM; R25 é o vídeo) em `docs/requisitos.md` | ★★ |
+| 23/11 | **falso alarme da ferramenta** | O verificador de links acusou **503** do GitHub na página do `drift_report.html` (e no `README.md`). Parecia link quebrado | A mesma URL deu 503 e 200 em segundos, com HEAD mais que GET: é o GitHub limitando acesso automatizado sem login, não o link. Com nova tentativa e espera em status transitório, 2 rodadas seguidas deram **14/15**; o que falha é o link do arquivo novo no `main` (404 até o merge) | ★★ |
 
 ---
+
+## 23/11/2026 (seg, 2ª execução) — D14 adiantado em parte: revisão contra os requisitos, links e entrega
+
+**Feito**
+- `docs/requisitos.md`: os 27 requisitos do enunciado (R01–R27), cada um com a evidência no
+  repositório, o teste que prova e o status. `tests/test_requirements.py` confere a tabela: os 27 em
+  ordem, todo arquivo, módulo, alvo do `Makefile` e teste citado existe, e todo requisito que não está
+  `ok` diz o que falta.
+- Provas novas onde a revisão achou só evidência indireta: `test_run_registers_champion_and_exports_artifacts`
+  agora exige `cv_accuracy_mean`, `cv_f1_macro_mean`, `test_accuracy`, `test_f1_macro` e a matriz de
+  confusão em cada run do MLflow (R04); `tests/test_source.py` (3 testes) prova que o download com
+  SHA-256 diferente falha e que a cópia conferida não é baixada de novo (R02).
+- `support_copilot.links` (`uv run python -m support_copilot.links`): extrai todo link externo do README
+  e de `docs/`, confere cada um sem cookie nem login e escreve `reports/_build/links_check.md`.
+  `tests/test_links.py` (7 testes, sem rede).
+- `docs/entrega.md`: fonte do documento de entrega (links do repositório, README, relatório de drift e
+  requisitos; vídeo como `PENDENTE`; caminho do avaliador em 3 passos; 4 números). README aponta
+  para `docs/requisitos.md`; contagem de testes atualizada (177).
+
+**Decisões**
+- **Adiantar o D14 só no que não depende do Rafael.** A tag `v1.0` e o PDF de entrega precisam do
+  vídeo e dos PRs #16–#18 mergeados; fazer agora criaria uma tag que não é a versão entregue.
+- **RM fora do repositório:** o documento é versionado num repositório público; o RM entra só no PDF.
+- **Verificador de links se identifica como navegador e tenta de novo em 429/5xx** (até 3 vezes, espera
+  de 1,5 s × tentativa). Sem cookie nem credencial, então continua medindo o acesso "deslogado".
+- **PR empilhado sobre o #17** (que está sobre o #16), pelo mesmo motivo do #17: diário e README
+  mudam nos três. **Não mergeado:** depende dos dois anteriores, que esperam o Rafael.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| requisitos | **25 ok · 1 parcial · 1 pendente** de 27 | `docs/requisitos.md`, conferido por `tests/test_requirements.py` |
+| links externos sem login | **14/15** (2 rodadas seguidas) | `uv run python -m support_copilot.links`; a falha é o 404 de `blob/main/docs/requisitos.md` antes do merge |
+| GitHub sem login, páginas `blob/main` | `curl` padrão: 503 em 4/4; `curl` com agente de navegador: 200 em 4/4; `urllib` com agente de navegador: ainda 503 (HEAD do `README.md`, 1ª rodada do `drift_report.html`) e 200 logo depois | `curl -w %{http_code}` e `urllib_fetch`, 10h33–10h35 |
+| testes | 160 → **177** (+7 links, +3 download, +5 requisitos, +2 checagens de links relativos para `entrega.md` e `requisitos.md`) | `uv run pytest -q --cov` |
+| cobertura | pacote **85%** (era 83%); módulos críticos 98%; `data/source.py` 88%; `links.py` 81% | `coverage report` com os portões do CI |
+
+**Validação**
+- `uv run ruff format . && uv run ruff check .` limpos; `uv run pytest -q --cov` → 177 passed; portões
+  de 80% (pacote) e 95% (críticos) passam.
+- Cada linha da matriz conferida no código, não só no plano: por exemplo, "Dataset Drift is detected"
+  aparece 1 vez em `reports/drift_report.html` e "NOT detected" 1 vez no controle; `max_length` do
+  Pydantic é 1000; `PyPDFLoader`, `RecursiveCharacterTextSplitter` e `FAISS` vêm do LangChain.
+
+**Hipóteses**
+- *Refutada:* "o 503 do GitHub é link quebrado". É limitação de acesso automatizado; o link abre.
+- *Aberta:* o R12 só fecha com uma chamada real ao Gemini ou à OpenAI. O guardrail de saída já cobre
+  o caminho real (teste com modelo espião), mas a fidelidade das respostas de um LLM real não foi medida.
+
+**Pendências**
+- **Rafael:** Windows 11 (D11) → merge do #16, depois #17 e este PR; revisão do roteiro e ensaio
+  (D12); gravação e publicação do vídeo (D13); chave do LLM no `.env`, se quiser fechar o R12.
+- **D14, depois do vídeo:** trocar `PENDENTE` pelo link em `docs/entrega.md`, rodar de novo
+  `uv run python -m support_copilot.links` (esperado 16/16), gerar o PDF, tag `v1.0`.
 
 ## 23/11/2026 (seg) — D11 bloqueado (Windows); D12 adiantado: roteiro STAR e cenas testadas
 
