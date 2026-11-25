@@ -93,6 +93,44 @@ saem as histórias do roteiro (formato STAR: situação → o que fizemos → re
 | 23/11 | **revisão de requisitos** | A matriz do enunciado foi refeita como teste: cada requisito com arquivo e teste que o comprovam. Duas provas eram só indiretas: acurácia/F1 no MLflow (R04) só se via no print, e o SHA-256 do dataset (R02) não tinha teste | 2 provas novas (as métricas de cada run no MLflow e o download que falha com hash diferente). Resultado: **25 ok · 1 parcial · 1 pendente** (R12 sem chamada real ao LLM; R25 é o vídeo) em `docs/requisitos.md` | ★★ |
 | 23/11 | **falso alarme da ferramenta** | O verificador de links acusou **503** do GitHub na página do `drift_report.html` (e no `README.md`). Parecia link quebrado | A mesma URL deu 503 e 200 em segundos, com HEAD mais que GET: é o GitHub limitando acesso automatizado sem login, não o link. Com nova tentativa e espera em status transitório, 2 rodadas seguidas deram **14/15**; o que falha é o link do arquivo novo no `main` (404 até o merge) | ★★ |
 | 24/11 | **bloqueio** | 2º dia com o D11 parado no Windows do Rafael. Todo bloco com data até hoje que ainda tem item aberto (D11, D12) só tem itens dele, e o D13 (gravação) e o resto do D14 (tag, PDF, links com o vídeo) também dependem dele | Nenhum trabalho novo inventado. Conferido que a pilha continua pronta para o merge: `main` ⊂ #16 ⊂ #17 ⊂ #18 (sem commit novo no `main`), os 3 PRs `CLEAN` com CI verde, 177 testes verdes no Mac e links sem login **14/15** (o mesmo 404 esperado antes do merge) | ★ |
+| 25/11 | **bloqueio** | 3º dia sem bloco executável, e hoje é a data do D13 (gravação). Tudo que falta até a entrega de 27/11 está em sequência e depende do Rafael: Windows (D11) → merge #16 → #17 → #18 → ensaio e gravação (D12–D13) → tag, PDF e links (D14) → envio. A execução agendada para 08:55 UTC só disparou às 14:23 UTC | Nenhum trabalho novo inventado. Pilha reconferida sem mudança desde 24/11: `main` ⊂ #16 ⊂ #17 ⊂ #18, os 3 `CLEAN` com CI verde, **177 testes** verdes e ruff limpo. Levada ao Rafael a opção de mergear a pilha já e tratar o Windows num PR de correção (a decisão é dele) | ★ |
+
+---
+
+## 25/11/2026 (qua) — sem bloco executável: o caminho crítico até 27/11 é todo do Rafael
+
+**Feito**
+- Escolha do bloco pela regra da execução diária: o mais antigo com P0/P1 aberto e data ≤ hoje
+  continua sendo o D11 (Windows 11), do Rafael. D12 só tem o ensaio aberto, D13 (hoje) é a gravação
+  e o resto do D14 depende do vídeo e dos merges. Nada foi adiantado nem inventado.
+- Conferência de que a pilha de PRs continua pronta para o merge.
+
+**Decisões**
+- **Sem PR novo.** O registro vai no #18, como em 24/11.
+- **Levar a decisão do merge ao Rafael, sem tomá-la.** Faltam 2 dias para a meta interna. O plano
+  segura o #16 até o Windows passar; a alternativa é mergear a pilha agora (a metade do Mac está
+  validada e o CI roda em Linux) e corrigir o que o Windows mostrar num PR à parte. Isso muda o que
+  está registrado no plano, então fica com ele.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| pilha de PRs | `main` ⊂ #16 ⊂ #17 ⊂ #18; os 3 `CLEAN`, CI verde (lint-test + docker); nenhum commit novo desde 24/11 | `git merge-base --is-ancestor`, `gh pr view --json mergeStateStatus,statusCheckRollup` |
+| testes no Mac (branch do #18) | **177 passed**; cobertura 84,55% (portão 80%) | `uv run pytest -q --cov` |
+
+**Validação**
+- `uv run ruff format --check .` (75 arquivos) e `uv run ruff check .` limpos.
+
+**Hipóteses**
+- Nenhuma nova.
+
+**Pendências (todas do Rafael, em ordem)**
+1. D11: clone limpo no Windows 11 pelo roteiro PowerShell no fim de `docs/validacao.md` (ou decidir
+   mergear antes e validar depois).
+2. Merge na ordem #16 → #17 → #18.
+3. D12–D13: ensaio cronometrado, gravação, publicação não listada e teste do link sem login.
+4. D14: tag `v1.0`, PDF a partir de `docs/entrega.md` com o link do vídeo,
+   `uv run python -m support_copilot.links` (esperado 15/15 depois do merge) e envio em 27/11.
 
 ---
 
