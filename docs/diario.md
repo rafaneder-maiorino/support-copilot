@@ -94,6 +94,60 @@ saem as histórias do roteiro (formato STAR: situação → o que fizemos → re
 | 23/11 | **falso alarme da ferramenta** | O verificador de links acusou **503** do GitHub na página do `drift_report.html` (e no `README.md`). Parecia link quebrado | A mesma URL deu 503 e 200 em segundos, com HEAD mais que GET: é o GitHub limitando acesso automatizado sem login, não o link. Com nova tentativa e espera em status transitório, 2 rodadas seguidas deram **14/15**; o que falha é o link do arquivo novo no `main` (404 até o merge) | ★★ |
 | 24/11 | **bloqueio** | 2º dia com o D11 parado no Windows do Rafael. Todo bloco com data até hoje que ainda tem item aberto (D11, D12) só tem itens dele, e o D13 (gravação) e o resto do D14 (tag, PDF, links com o vídeo) também dependem dele | Nenhum trabalho novo inventado. Conferido que a pilha continua pronta para o merge: `main` ⊂ #16 ⊂ #17 ⊂ #18 (sem commit novo no `main`), os 3 PRs `CLEAN` com CI verde, 177 testes verdes no Mac e links sem login **14/15** (o mesmo 404 esperado antes do merge) | ★ |
 | 25/11 | **bloqueio** | 3º dia sem bloco executável, e hoje é a data do D13 (gravação). Tudo que falta até a entrega de 27/11 está em sequência e depende do Rafael: Windows (D11) → merge #16 → #17 → #18 → ensaio e gravação (D12–D13) → tag, PDF e links (D14) → envio. A execução agendada para 08:55 UTC só disparou às 14:23 UTC | Nenhum trabalho novo inventado. Pilha reconferida sem mudança desde 24/11: `main` ⊂ #16 ⊂ #17 ⊂ #18, os 3 `CLEAN` com CI verde, **177 testes** verdes e ruff limpo. Levada ao Rafael a opção de mergear a pilha já e tratar o Windows num PR de correção (a decisão é dele) | ★ |
+| 26/11 | **bloqueio** | 4º dia com o D11 parado no Windows do Rafael, e hoje é a data do D14 (fechamento), véspera da meta interna de 27/11. Nenhuma resposta dele nos PRs #16–#18 desde 25/11 | Pilha reconferida: `main` ⊂ #16 ⊂ #17 ⊂ #18, os 3 `CLEAN` com CI verde. Adiantada a única parte do D14 que não depende dele: o gerador do PDF de entrega, para o envio de amanhã virar um comando só | ★ |
+| 26/11 | **armadilha evitada** | A fonte da entrega (`docs/entrega.md`) aponta para os arquivos com **6 links relativos** (`../README.md`, `../Dockerfile`...). Funcionam no GitHub, mas num PDF não têm para onde ir: o avaliador clicaria em link morto | O gerador troca cada um pelo endereço absoluto no `main` do GitHub e recusa gerar com link relativo ou `PENDENTE`; um teste confere que os 6 apontam para arquivos que existem. PDF de teste lido de volta: **10/10** links externos clicáveis | ★★ |
+| 26/11 | bug | Na 1ª versão do PDF, o item 2 do "como avaliar" quebrou no meio ("o `/chat` roda" / "com o provedor"): a opção de quebra de linha do Markdown transformava toda quebra do arquivo-fonte em quebra visível | Quebra forçada só nas linhas do cabeçalho (Projeto / Curso / Aluno); teste exige exatamente 2 `<br />` no HTML | ★ |
+| 26/11 | privacidade | O RM entra no PDF, e o PDF não pode ir para o repositório público | O RM é argumento da linha de comando, o PDF vai para `reports/_build/` (gitignored) e um teste garante que a fonte versionada não tem RM; os testes usam um RM falso | ★ |
+
+---
+
+## 26/11/2026 (qui) — D11 ainda no Windows; adiantado o gerador do PDF de entrega (D14)
+
+**Feito**
+- Escolha do bloco pela regra da execução diária: o mais antigo com P0/P1 aberto e data ≤ hoje
+  continua sendo o D11 (Windows 11), do Rafael; D12 só tem o ensaio aberto e o D13 é a gravação.
+  O D14 (data de hoje) tem um pedaço que não depende dele: o PDF de entrega pede só o link do vídeo,
+  então o gerador pode ficar pronto e testado antes.
+- `src/support_copilot/delivery.py`: lê `docs/entrega.md`, preenche o link do vídeo (aceita
+  `youtu.be` e `youtube.com/watch`, com ou sem parâmetro de compartilhamento, e devolve
+  `https://youtu.be/<id>`), acrescenta a linha do aluno com o RM, tira a nota sobre a fonte, troca
+  links relativos por absolutos do GitHub, recusa gerar se sobrar `PENDENTE` ou link relativo,
+  renderiza HTML (`markdown-it-py`, A4, corpo 11 pt) e imprime com o Chrome headless (o mesmo
+  caminho do `scripts/build_manual.py`). Depois lê o PDF de volta com o `pypdf` e confere páginas,
+  o id do vídeo no texto e uma anotação de link para cada URL externa da fonte.
+- `tests/test_delivery.py`: 23 testes, offline (o Chrome é trocado por um gravador `reportlab`).
+- `docs/entrega.md`: o comando do dia do envio na nota da fonte (que o gerador tira do PDF).
+
+**Decisões**
+- **`markdown-it-py` como dependência direta.** Já estava no lock (vem pelo `rich`), na mesma versão
+  4.3.0: o `requirements.txt` só ganhou o comentário "via support-copilot", nenhum pino mudou.
+- **O registro vai no PR #18 (D14)**, sem PR novo, para não alongar a fila de merge.
+- **Sem merge.** O DoD do D11 não está cumprido (Windows) e o resto do D14 depende do vídeo.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| PDF de teste | 2 páginas A4, 73 KB, gerado em **3,2 s**; id do vídeo no texto; **10/10** links externos clicáveis (14 anotações) | `uv run python -m support_copilot.delivery --video-url https://youtu.be/AbCdEfGhIjK?si=test --rm 12345 --out reports/_build/entrega_teste.pdf` (id e RM falsos), `time -p` |
+| placeholder | `--video-url https://youtu.be/PENDENTE` → código de saída 1, sem PDF | mesmo comando |
+| testes no Mac | **200 passed** (177 + 23); cobertura 85,36% (portão 80%); `delivery.py` 94% | `uv run pytest -q --cov` |
+| pilha de PRs | `main` ⊂ #16 ⊂ #17 ⊂ #18; os 3 `CLEAN`, CI verde; nenhum commit novo no `main` desde 17/11 | `gh pr view`, `gh pr checks` |
+
+**Validação**
+- `uv run ruff format --check .` e `uv run ruff check .` limpos.
+- PDF de teste aberto como imagem (render do HTML): cabeçalho com uma linha por campo, tabelas com
+  borda, links absolutos, nenhum `../`.
+
+**Hipóteses**
+- Nenhuma nova.
+
+**Pendências (todas do Rafael, em ordem)**
+1. D11: clone limpo no Windows 11 pelo roteiro de `docs/validacao.md` (ou decidir mergear antes).
+2. Merge na ordem #16 → #17 → #18.
+3. D12–D13: ensaio, gravação, publicação não listada e teste do link sem login.
+4. D14: `git tag v1.0 && git push origin v1.0`;
+   `uv run python -m support_copilot.delivery --video-url <link> --rm <RM>` (o PDF sai em
+   `reports/_build/entrega.pdf`); `uv run python -m support_copilot.links` (esperado 15/15 depois do
+   merge) e envio em 27/11.
 
 ---
 

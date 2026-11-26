@@ -39,7 +39,7 @@ comprovam, está em [`docs/requisitos.md`](docs/requisitos.md).
 | Guardrails: falsos positivos | 0/50 perguntas legítimas · 1/399 benignos externos · 0/2.110 chamados técnicos reais | mesmo relatório |
 | Drift | chamados em alemão: drift em 20/20 lotes e F1 −0,190; lote limpo: 0/20 | 20 sementes, limiares calibrados em 50 testes A/A ([`reports/drift_summary.md`](reports/drift_summary.md)) |
 | Docker | imagem 2,80 GB (659 MB comprimida); clone limpo → `docker compose up` em 376–383 s | Mac M2, build sem cache (16/11 e 19/11) |
-| Testes | 177 testes; cobertura **98%** nos módulos críticos (validação, guardrails, `/chat`, `/ticket`) e 85% no pacote | `pytest-cov` com portões de 95% e 80% no CI ([`docs/validacao.md`](docs/validacao.md)) |
+| Testes | 200 testes; cobertura **98%** nos módulos críticos (validação, guardrails, `/chat`, `/ticket`) e 85% no pacote | `pytest-cov` com portões de 95% e 80% no CI ([`docs/validacao.md`](docs/validacao.md)) |
 | Latência (sem LLM real) | `/predict` p50 1,5 ms · `/ticket` p50 23,8 ms | 300 requisições por rota no contêiner, provedor `fake` |
 
 ## Caminho do avaliador
