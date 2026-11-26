@@ -1,7 +1,10 @@
 # Entrega — Datathon Fase 5
 
 Fonte do documento de entrega (PDF) enviado na plataforma da FIAP. O PDF é gerado a partir deste
-arquivo no dia do envio, depois que o link do vídeo existir; o RM é preenchido só no PDF.
+arquivo no dia do envio, depois que o link do vídeo existir; o RM é preenchido só no PDF:
+`uv run python -m support_copilot.delivery --video-url <link do YouTube> --rm <RM>` grava
+`reports/_build/entrega.pdf` (fora do Git), com os links relativos trocados por endereços absolutos
+do GitHub, e confere o PDF lido de volta (páginas, link do vídeo e os 10 links clicáveis).
 
 **Projeto:** Support Copilot — triagem, RAG e guardrails para suporte técnico
 **Curso:** Pós Tech em Machine Learning Engineering (FIAP) · Datathon da Fase 5 · Grupo 11 (individual)

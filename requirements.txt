@@ -256,7 +256,9 @@ loguru==0.7.3
 mako==1.4.3
     # via alembic
 markdown-it-py==4.3.0
-    # via rich
+    # via
+    #   rich
+    #   support-copilot
 markupsafe==3.0.4
     # via
     #   flask
