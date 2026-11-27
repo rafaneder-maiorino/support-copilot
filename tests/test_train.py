@@ -63,3 +63,13 @@ def test_run_registers_champion_and_exports_artifacts(tmp_path, monkeypatch):
     alias = MlflowClient().get_model_version_by_alias(tr.REGISTERED_MODEL, "champion")
     assert int(alias.version) == meta["version"]
     assert out["paired"]["folds"] == 2
+
+    # R04: every candidate run carries accuracy and F1 (CV and test) plus the confusion matrix.
+    client = MlflowClient()
+    experiment = client.get_experiment_by_name(tr.EXPERIMENT)
+    runs = client.search_runs([experiment.experiment_id])
+    assert len(runs) == len(candidates)
+    for r in runs:
+        assert {"cv_accuracy_mean", "cv_f1_macro_mean", "test_accuracy", "test_f1_macro"} <= set(r.data.metrics)
+        artifacts = {a.path for a in client.list_artifacts(r.info.run_id)}
+        assert any(p.startswith("confusion_") and p.endswith(".png") for p in artifacts), artifacts

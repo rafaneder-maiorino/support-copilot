@@ -89,8 +89,235 @@ saem as histórias do roteiro (formato STAR: situação → o que fizemos → re
 | 23/11 | decisão | O roteiro foi tratado como artefato testado: as 7 requisições do vídeo estão em `docs/demo/scenes.json`, um teste refaz cada uma contra a API, e outro conta as palavras de cada bloco | 7/7 cenas deram o resultado narrado já na 1ª rodada. Fala com 655 palavras ≈ 4:22 a 150 palavras/min; o A4 estourava a janela (78 palavras = 31 s em 30 s) e foi cortado para 75 | ★★ |
 | 23/11 | honestidade na tela | Nas cenas, a confiança da triagem é baixa: 0,36 no chamado de senha (fila certa), 0,46 no de VPN, 0,83 no de cobrança | Esperado com 10 filas e F1 macro 0,37; a explicação está no bloco A1 e nas notas, para não ser pego de surpresa na pergunta do avaliador | ★ |
 | 23/11 | obstáculo de ferramenta | Nenhuma pasta conectada à sessão, então `device_commit_files` não tinha destino para gravar os arquivos novos | Arquivos escritos direto no repositório pelo Desktop Commander; o `Makefile` não foi tocado | ★ |
+| 23/11 | decisão | 2ª execução do dia: o D11 segue bloqueado (Windows do Rafael) e o D12 já foi adiantado de manhã. Restava adiantar o D14, que é o fechamento | Feita só a parte que não depende do vídeo: revisão contra os 27 requisitos, conferência de links sem login e a fonte do documento de entrega. Tag `v1.0` e PDF ficam para depois do vídeo e dos merges | ★ |
+| 23/11 | **revisão de requisitos** | A matriz do enunciado foi refeita como teste: cada requisito com arquivo e teste que o comprovam. Duas provas eram só indiretas: acurácia/F1 no MLflow (R04) só se via no print, e o SHA-256 do dataset (R02) não tinha teste | 2 provas novas (as métricas de cada run no MLflow e o download que falha com hash diferente). Resultado: **25 ok · 1 parcial · 1 pendente** (R12 sem chamada real ao LLM; R25 é o vídeo) em `docs/requisitos.md` | ★★ |
+| 23/11 | **falso alarme da ferramenta** | O verificador de links acusou **503** do GitHub na página do `drift_report.html` (e no `README.md`). Parecia link quebrado | A mesma URL deu 503 e 200 em segundos, com HEAD mais que GET: é o GitHub limitando acesso automatizado sem login, não o link. Com nova tentativa e espera em status transitório, 2 rodadas seguidas deram **14/15**; o que falha é o link do arquivo novo no `main` (404 até o merge) | ★★ |
+| 24/11 | **bloqueio** | 2º dia com o D11 parado no Windows do Rafael. Todo bloco com data até hoje que ainda tem item aberto (D11, D12) só tem itens dele, e o D13 (gravação) e o resto do D14 (tag, PDF, links com o vídeo) também dependem dele | Nenhum trabalho novo inventado. Conferido que a pilha continua pronta para o merge: `main` ⊂ #16 ⊂ #17 ⊂ #18 (sem commit novo no `main`), os 3 PRs `CLEAN` com CI verde, 177 testes verdes no Mac e links sem login **14/15** (o mesmo 404 esperado antes do merge) | ★ |
+| 25/11 | **bloqueio** | 3º dia sem bloco executável, e hoje é a data do D13 (gravação). Tudo que falta até a entrega de 27/11 está em sequência e depende do Rafael: Windows (D11) → merge #16 → #17 → #18 → ensaio e gravação (D12–D13) → tag, PDF e links (D14) → envio. A execução agendada para 08:55 UTC só disparou às 14:23 UTC | Nenhum trabalho novo inventado. Pilha reconferida sem mudança desde 24/11: `main` ⊂ #16 ⊂ #17 ⊂ #18, os 3 `CLEAN` com CI verde, **177 testes** verdes e ruff limpo. Levada ao Rafael a opção de mergear a pilha já e tratar o Windows num PR de correção (a decisão é dele) | ★ |
+| 26/11 | **bloqueio** | 4º dia com o D11 parado no Windows do Rafael, e hoje é a data do D14 (fechamento), véspera da meta interna de 27/11. Nenhuma resposta dele nos PRs #16–#18 desde 25/11 | Pilha reconferida: `main` ⊂ #16 ⊂ #17 ⊂ #18, os 3 `CLEAN` com CI verde. Adiantada a única parte do D14 que não depende dele: o gerador do PDF de entrega, para o envio de amanhã virar um comando só | ★ |
+| 26/11 | **armadilha evitada** | A fonte da entrega (`docs/entrega.md`) aponta para os arquivos com **6 links relativos** (`../README.md`, `../Dockerfile`...). Funcionam no GitHub, mas num PDF não têm para onde ir: o avaliador clicaria em link morto | O gerador troca cada um pelo endereço absoluto no `main` do GitHub e recusa gerar com link relativo ou `PENDENTE`; um teste confere que os 6 apontam para arquivos que existem. PDF de teste lido de volta: **10/10** links externos clicáveis | ★★ |
+| 26/11 | bug | Na 1ª versão do PDF, o item 2 do "como avaliar" quebrou no meio ("o `/chat` roda" / "com o provedor"): a opção de quebra de linha do Markdown transformava toda quebra do arquivo-fonte em quebra visível | Quebra forçada só nas linhas do cabeçalho (Projeto / Curso / Aluno); teste exige exatamente 2 `<br />` no HTML | ★ |
+| 26/11 | privacidade | O RM entra no PDF, e o PDF não pode ir para o repositório público | O RM é argumento da linha de comando, o PDF vai para `reports/_build/` (gitignored) e um teste garante que a fonte versionada não tem RM; os testes usam um RM falso | ★ |
+| 27/11 | **bloqueio** | Dia da meta interna de entrega e 5º dia com o D11 parado no Windows do Rafael. Nenhuma resposta nos PRs #16–#18 desde 26/11. O envio na plataforma FIAP não saiu hoje: depende do vídeo (D13) e do próprio Rafael. A execução agendada para 08:55 UTC só disparou às 13:57 UTC | Nenhum trabalho novo inventado. Pilha reconferida: `main` ⊂ #16 ⊂ #17 ⊂ #18, os 3 `CLEAN` com CI verde, **200 testes** verdes, ruff limpo, links sem login **16/17** (o mesmo 404 de `docs/requisitos.md` antes do merge). Meta interna perdida só no que depende do Rafael; o prazo oficial (29/01/2027) deixa **63 dias** de folga | ★ |
 
 ---
+
+## 27/11/2026 (sex) — meta interna: sem bloco executável; pilha pronta, entrega espera o Rafael
+
+**Feito**
+- Escolha do bloco pela regra da execução diária: o mais antigo com P0/P1 aberto e data ≤ hoje
+  continua sendo o D11 (Windows 11), do Rafael. O D12 (ensaio), o D13 (gravação), o resto do D14
+  (tag, PDF com o link do vídeo, links) e o envio de hoje também dependem dele. Não sobrou nenhum
+  pedaço independente: o gerador do PDF ficou pronto ontem.
+- Pilha de PRs reconferida a partir dos remotos e testes refeitos no Mac.
+- Esta é a última execução útil da tarefa agendada: pela regra dela, a partir de 28/11 não há
+  trabalho novo, só resumo.
+
+**Decisões**
+- **Sem merge.** O DoD do D11 não está cumprido (Windows). Mergear a pilha antes e tratar o Windows
+  num PR de correção continua sendo uma opção, mas a decisão é do Rafael (levada a ele desde 25/11).
+- **O registro vai no PR #18**, sem PR novo.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| pilha de PRs | `main` ⊂ #16 ⊂ #17 ⊂ #18; os 3 `CLEAN`, CI verde (lint-test e docker); nenhum commit novo no `main` desde 17/11; nenhum comentário novo do Rafael | `gh pr view`, `gh pr checks`, `git merge-base --is-ancestor` |
+| testes no Mac | **200 passed** em 24,5 s | `uv run pytest -q` |
+| links sem login | **16/17**; o que falha é `docs/requisitos.md` no `main` (404 até o merge do #18) | `uv run python -m support_copilot.links` |
+| folga até o prazo oficial | **63 dias** (27/11/2026 → 29/01/2027) | contagem de calendário |
+
+**Validação**
+- `uv run ruff format --check .` e `uv run ruff check .` limpos.
+
+**Hipóteses**
+- Nenhuma nova.
+
+**Pendências (todas do Rafael, em ordem)**
+1. D11: clone limpo no Windows 11 pelo roteiro de `docs/validacao.md` (ou decidir mergear antes).
+2. Merge na ordem #16 → #17 → #18.
+3. D12–D13: ensaio, gravação, publicação não listada e teste do link sem login.
+4. D14: `git tag v1.0 && git push origin v1.0`;
+   `uv run python -m support_copilot.delivery --video-url <link> --rm <RM>` (o PDF sai em
+   `reports/_build/entrega.pdf`); `uv run python -m support_copilot.links` (esperado 17/17 depois do
+   merge).
+5. Envio em "Entregue seu Datathon" e conferência do registro na plataforma (prazo oficial
+   29/01/2027, 23h59).
+
+---
+
+## 26/11/2026 (qui) — D11 ainda no Windows; adiantado o gerador do PDF de entrega (D14)
+
+**Feito**
+- Escolha do bloco pela regra da execução diária: o mais antigo com P0/P1 aberto e data ≤ hoje
+  continua sendo o D11 (Windows 11), do Rafael; D12 só tem o ensaio aberto e o D13 é a gravação.
+  O D14 (data de hoje) tem um pedaço que não depende dele: o PDF de entrega pede só o link do vídeo,
+  então o gerador pode ficar pronto e testado antes.
+- `src/support_copilot/delivery.py`: lê `docs/entrega.md`, preenche o link do vídeo (aceita
+  `youtu.be` e `youtube.com/watch`, com ou sem parâmetro de compartilhamento, e devolve
+  `https://youtu.be/<id>`), acrescenta a linha do aluno com o RM, tira a nota sobre a fonte, troca
+  links relativos por absolutos do GitHub, recusa gerar se sobrar `PENDENTE` ou link relativo,
+  renderiza HTML (`markdown-it-py`, A4, corpo 11 pt) e imprime com o Chrome headless (o mesmo
+  caminho do `scripts/build_manual.py`). Depois lê o PDF de volta com o `pypdf` e confere páginas,
+  o id do vídeo no texto e uma anotação de link para cada URL externa da fonte.
+- `tests/test_delivery.py`: 23 testes, offline (o Chrome é trocado por um gravador `reportlab`).
+- `docs/entrega.md`: o comando do dia do envio na nota da fonte (que o gerador tira do PDF).
+
+**Decisões**
+- **`markdown-it-py` como dependência direta.** Já estava no lock (vem pelo `rich`), na mesma versão
+  4.3.0: o `requirements.txt` só ganhou o comentário "via support-copilot", nenhum pino mudou.
+- **O registro vai no PR #18 (D14)**, sem PR novo, para não alongar a fila de merge.
+- **Sem merge.** O DoD do D11 não está cumprido (Windows) e o resto do D14 depende do vídeo.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| PDF de teste | 2 páginas A4, 73 KB, gerado em **3,2 s**; id do vídeo no texto; **10/10** links externos clicáveis (14 anotações) | `uv run python -m support_copilot.delivery --video-url https://youtu.be/AbCdEfGhIjK?si=test --rm 12345 --out reports/_build/entrega_teste.pdf` (id e RM falsos), `time -p` |
+| placeholder | `--video-url https://youtu.be/PENDENTE` → código de saída 1, sem PDF | mesmo comando |
+| testes no Mac | **200 passed** (177 + 23); cobertura 85,36% (portão 80%); `delivery.py` 94% | `uv run pytest -q --cov` |
+| pilha de PRs | `main` ⊂ #16 ⊂ #17 ⊂ #18; os 3 `CLEAN`, CI verde; nenhum commit novo no `main` desde 17/11 | `gh pr view`, `gh pr checks` |
+
+**Validação**
+- `uv run ruff format --check .` e `uv run ruff check .` limpos.
+- PDF de teste aberto como imagem (render do HTML): cabeçalho com uma linha por campo, tabelas com
+  borda, links absolutos, nenhum `../`.
+
+**Hipóteses**
+- Nenhuma nova.
+
+**Pendências (todas do Rafael, em ordem)**
+1. D11: clone limpo no Windows 11 pelo roteiro de `docs/validacao.md` (ou decidir mergear antes).
+2. Merge na ordem #16 → #17 → #18.
+3. D12–D13: ensaio, gravação, publicação não listada e teste do link sem login.
+4. D14: `git tag v1.0 && git push origin v1.0`;
+   `uv run python -m support_copilot.delivery --video-url <link> --rm <RM>` (o PDF sai em
+   `reports/_build/entrega.pdf`); `uv run python -m support_copilot.links` (esperado 15/15 depois do
+   merge) e envio em 27/11.
+
+---
+
+## 25/11/2026 (qua) — sem bloco executável: o caminho crítico até 27/11 é todo do Rafael
+
+**Feito**
+- Escolha do bloco pela regra da execução diária: o mais antigo com P0/P1 aberto e data ≤ hoje
+  continua sendo o D11 (Windows 11), do Rafael. D12 só tem o ensaio aberto, D13 (hoje) é a gravação
+  e o resto do D14 depende do vídeo e dos merges. Nada foi adiantado nem inventado.
+- Conferência de que a pilha de PRs continua pronta para o merge.
+
+**Decisões**
+- **Sem PR novo.** O registro vai no #18, como em 24/11.
+- **Levar a decisão do merge ao Rafael, sem tomá-la.** Faltam 2 dias para a meta interna. O plano
+  segura o #16 até o Windows passar; a alternativa é mergear a pilha agora (a metade do Mac está
+  validada e o CI roda em Linux) e corrigir o que o Windows mostrar num PR à parte. Isso muda o que
+  está registrado no plano, então fica com ele.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| pilha de PRs | `main` ⊂ #16 ⊂ #17 ⊂ #18; os 3 `CLEAN`, CI verde (lint-test + docker); nenhum commit novo desde 24/11 | `git merge-base --is-ancestor`, `gh pr view --json mergeStateStatus,statusCheckRollup` |
+| testes no Mac (branch do #18) | **177 passed**; cobertura 84,55% (portão 80%) | `uv run pytest -q --cov` |
+
+**Validação**
+- `uv run ruff format --check .` (75 arquivos) e `uv run ruff check .` limpos.
+
+**Hipóteses**
+- Nenhuma nova.
+
+**Pendências (todas do Rafael, em ordem)**
+1. D11: clone limpo no Windows 11 pelo roteiro PowerShell no fim de `docs/validacao.md` (ou decidir
+   mergear antes e validar depois).
+2. Merge na ordem #16 → #17 → #18.
+3. D12–D13: ensaio cronometrado, gravação, publicação não listada e teste do link sem login.
+4. D14: tag `v1.0`, PDF a partir de `docs/entrega.md` com o link do vídeo,
+   `uv run python -m support_copilot.links` (esperado 15/15 depois do merge) e envio em 27/11.
+
+---
+
+## 24/11/2026 (ter) — sem bloco executável: D11 a D14 esperam o Rafael
+
+**Feito**
+- Escolha do bloco pela regra da execução diária: o mais antigo com P0/P1 aberto e data ≤ hoje é o
+  D11 (clone limpo no Windows 11 e correção do que quebrar), que é do Rafael; o D12 (24/11) só tem o
+  ensaio cronometrado aberto, também dele. D13 e o resto do D14 dependem do vídeo. Nada foi adiantado.
+- Conferência de que nada apodreceu desde ontem, para o merge poder ser feito assim que o Windows passar.
+
+**Decisões**
+- **Não abrir PR novo.** Este registro vai no #18, que já carrega o diário mais recente; um 4º PR
+  empilhado só aumentaria a fila de merge.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| pilha de PRs | `main` ⊂ #16 ⊂ #17 ⊂ #18; os 3 `CLEAN`, CI verde (lint-test + docker) | `git merge-base --is-ancestor`, `gh pr view --json mergeStateStatus`, `gh pr checks` |
+| testes no Mac (branch do #18) | **177 passed**; cobertura 84,55% (portão 80%) | `uv run pytest -q --cov` |
+| links externos sem login | **14/15** | `uv run python -m support_copilot.links`; o 404 é `blob/main/docs/requisitos.md`, que só existe depois do merge |
+
+**Validação**
+- `uv run ruff format --check .` (75 arquivos) e `uv run ruff check .` limpos.
+
+**Hipóteses**
+- Nenhuma nova.
+
+**Pendências**
+- **Rafael, em ordem:** (1) roteiro PowerShell do Windows no fim de `docs/validacao.md` → resultado
+  na seção do Windows; (2) merge #16 → #17 → #18; (3) revisão do roteiro e ensaio (D12); (4) gravação
+  e publicação não listada (D13, planejado para 25/11).
+- **D14, depois do vídeo:** link em `docs/entrega.md`, links de novo (esperado 16/16), PDF, tag `v1.0`.
+
+---
+
+## 23/11/2026 (seg, 2ª execução) — D14 adiantado em parte: revisão contra os requisitos, links e entrega
+
+**Feito**
+- `docs/requisitos.md`: os 27 requisitos do enunciado (R01–R27), cada um com a evidência no
+  repositório, o teste que prova e o status. `tests/test_requirements.py` confere a tabela: os 27 em
+  ordem, todo arquivo, módulo, alvo do `Makefile` e teste citado existe, e todo requisito que não está
+  `ok` diz o que falta.
+- Provas novas onde a revisão achou só evidência indireta: `test_run_registers_champion_and_exports_artifacts`
+  agora exige `cv_accuracy_mean`, `cv_f1_macro_mean`, `test_accuracy`, `test_f1_macro` e a matriz de
+  confusão em cada run do MLflow (R04); `tests/test_source.py` (3 testes) prova que o download com
+  SHA-256 diferente falha e que a cópia conferida não é baixada de novo (R02).
+- `support_copilot.links` (`uv run python -m support_copilot.links`): extrai todo link externo do README
+  e de `docs/`, confere cada um sem cookie nem login e escreve `reports/_build/links_check.md`.
+  `tests/test_links.py` (7 testes, sem rede).
+- `docs/entrega.md`: fonte do documento de entrega (links do repositório, README, relatório de drift e
+  requisitos; vídeo como `PENDENTE`; caminho do avaliador em 3 passos; 4 números). README aponta
+  para `docs/requisitos.md`; contagem de testes atualizada (177).
+
+**Decisões**
+- **Adiantar o D14 só no que não depende do Rafael.** A tag `v1.0` e o PDF de entrega precisam do
+  vídeo e dos PRs #16–#18 mergeados; fazer agora criaria uma tag que não é a versão entregue.
+- **RM fora do repositório:** o documento é versionado num repositório público; o RM entra só no PDF.
+- **Verificador de links se identifica como navegador e tenta de novo em 429/5xx** (até 3 vezes, espera
+  de 1,5 s × tentativa). Sem cookie nem credencial, então continua medindo o acesso "deslogado".
+- **PR empilhado sobre o #17** (que está sobre o #16), pelo mesmo motivo do #17: diário e README
+  mudam nos três. **Não mergeado:** depende dos dois anteriores, que esperam o Rafael.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| requisitos | **25 ok · 1 parcial · 1 pendente** de 27 | `docs/requisitos.md`, conferido por `tests/test_requirements.py` |
+| links externos sem login | **14/15** (2 rodadas seguidas) | `uv run python -m support_copilot.links`; a falha é o 404 de `blob/main/docs/requisitos.md` antes do merge |
+| GitHub sem login, páginas `blob/main` | `curl` padrão: 503 em 4/4; `curl` com agente de navegador: 200 em 4/4; `urllib` com agente de navegador: ainda 503 (HEAD do `README.md`, 1ª rodada do `drift_report.html`) e 200 logo depois | `curl -w %{http_code}` e `urllib_fetch`, 10h33–10h35 |
+| testes | 160 → **177** (+7 links, +3 download, +5 requisitos, +2 checagens de links relativos para `entrega.md` e `requisitos.md`) | `uv run pytest -q --cov` |
+| cobertura | pacote **85%** (era 83%); módulos críticos 98%; `data/source.py` 88%; `links.py` 81% | `coverage report` com os portões do CI |
+
+**Validação**
+- `uv run ruff format . && uv run ruff check .` limpos; `uv run pytest -q --cov` → 177 passed; portões
+  de 80% (pacote) e 95% (críticos) passam.
+- Cada linha da matriz conferida no código, não só no plano: por exemplo, "Dataset Drift is detected"
+  aparece 1 vez em `reports/drift_report.html` e "NOT detected" 1 vez no controle; `max_length` do
+  Pydantic é 1000; `PyPDFLoader`, `RecursiveCharacterTextSplitter` e `FAISS` vêm do LangChain.
+
+**Hipóteses**
+- *Refutada:* "o 503 do GitHub é link quebrado". É limitação de acesso automatizado; o link abre.
+- *Aberta:* o R12 só fecha com uma chamada real ao Gemini ou à OpenAI. O guardrail de saída já cobre
+  o caminho real (teste com modelo espião), mas a fidelidade das respostas de um LLM real não foi medida.
+
+**Pendências**
+- **Rafael:** Windows 11 (D11) → merge do #16, depois #17 e este PR; revisão do roteiro e ensaio
+  (D12); gravação e publicação do vídeo (D13); chave do LLM no `.env`, se quiser fechar o R12.
+- **D14, depois do vídeo:** trocar `PENDENTE` pelo link em `docs/entrega.md`, rodar de novo
+  `uv run python -m support_copilot.links` (esperado 16/16), gerar o PDF, tag `v1.0`.
 
 ## 23/11/2026 (seg) — D11 bloqueado (Windows); D12 adiantado: roteiro STAR e cenas testadas
 
