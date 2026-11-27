@@ -98,6 +98,50 @@ saem as histórias do roteiro (formato STAR: situação → o que fizemos → re
 | 26/11 | **armadilha evitada** | A fonte da entrega (`docs/entrega.md`) aponta para os arquivos com **6 links relativos** (`../README.md`, `../Dockerfile`...). Funcionam no GitHub, mas num PDF não têm para onde ir: o avaliador clicaria em link morto | O gerador troca cada um pelo endereço absoluto no `main` do GitHub e recusa gerar com link relativo ou `PENDENTE`; um teste confere que os 6 apontam para arquivos que existem. PDF de teste lido de volta: **10/10** links externos clicáveis | ★★ |
 | 26/11 | bug | Na 1ª versão do PDF, o item 2 do "como avaliar" quebrou no meio ("o `/chat` roda" / "com o provedor"): a opção de quebra de linha do Markdown transformava toda quebra do arquivo-fonte em quebra visível | Quebra forçada só nas linhas do cabeçalho (Projeto / Curso / Aluno); teste exige exatamente 2 `<br />` no HTML | ★ |
 | 26/11 | privacidade | O RM entra no PDF, e o PDF não pode ir para o repositório público | O RM é argumento da linha de comando, o PDF vai para `reports/_build/` (gitignored) e um teste garante que a fonte versionada não tem RM; os testes usam um RM falso | ★ |
+| 27/11 | **bloqueio** | Dia da meta interna de entrega e 5º dia com o D11 parado no Windows do Rafael. Nenhuma resposta nos PRs #16–#18 desde 26/11. O envio na plataforma FIAP não saiu hoje: depende do vídeo (D13) e do próprio Rafael. A execução agendada para 08:55 UTC só disparou às 13:57 UTC | Nenhum trabalho novo inventado. Pilha reconferida: `main` ⊂ #16 ⊂ #17 ⊂ #18, os 3 `CLEAN` com CI verde, **200 testes** verdes, ruff limpo, links sem login **16/17** (o mesmo 404 de `docs/requisitos.md` antes do merge). Meta interna perdida só no que depende do Rafael; o prazo oficial (29/01/2027) deixa **63 dias** de folga | ★ |
+
+---
+
+## 27/11/2026 (sex) — meta interna: sem bloco executável; pilha pronta, entrega espera o Rafael
+
+**Feito**
+- Escolha do bloco pela regra da execução diária: o mais antigo com P0/P1 aberto e data ≤ hoje
+  continua sendo o D11 (Windows 11), do Rafael. O D12 (ensaio), o D13 (gravação), o resto do D14
+  (tag, PDF com o link do vídeo, links) e o envio de hoje também dependem dele. Não sobrou nenhum
+  pedaço independente: o gerador do PDF ficou pronto ontem.
+- Pilha de PRs reconferida a partir dos remotos e testes refeitos no Mac.
+- Esta é a última execução útil da tarefa agendada: pela regra dela, a partir de 28/11 não há
+  trabalho novo, só resumo.
+
+**Decisões**
+- **Sem merge.** O DoD do D11 não está cumprido (Windows). Mergear a pilha antes e tratar o Windows
+  num PR de correção continua sendo uma opção, mas a decisão é do Rafael (levada a ele desde 25/11).
+- **O registro vai no PR #18**, sem PR novo.
+
+**Números**
+| medida | valor | como |
+|---|---|---|
+| pilha de PRs | `main` ⊂ #16 ⊂ #17 ⊂ #18; os 3 `CLEAN`, CI verde (lint-test e docker); nenhum commit novo no `main` desde 17/11; nenhum comentário novo do Rafael | `gh pr view`, `gh pr checks`, `git merge-base --is-ancestor` |
+| testes no Mac | **200 passed** em 24,5 s | `uv run pytest -q` |
+| links sem login | **16/17**; o que falha é `docs/requisitos.md` no `main` (404 até o merge do #18) | `uv run python -m support_copilot.links` |
+| folga até o prazo oficial | **63 dias** (27/11/2026 → 29/01/2027) | contagem de calendário |
+
+**Validação**
+- `uv run ruff format --check .` e `uv run ruff check .` limpos.
+
+**Hipóteses**
+- Nenhuma nova.
+
+**Pendências (todas do Rafael, em ordem)**
+1. D11: clone limpo no Windows 11 pelo roteiro de `docs/validacao.md` (ou decidir mergear antes).
+2. Merge na ordem #16 → #17 → #18.
+3. D12–D13: ensaio, gravação, publicação não listada e teste do link sem login.
+4. D14: `git tag v1.0 && git push origin v1.0`;
+   `uv run python -m support_copilot.delivery --video-url <link> --rm <RM>` (o PDF sai em
+   `reports/_build/entrega.pdf`); `uv run python -m support_copilot.links` (esperado 17/17 depois do
+   merge).
+5. Envio em "Entregue seu Datathon" e conferência do registro na plataforma (prazo oficial
+   29/01/2027, 23h59).
 
 ---
 
